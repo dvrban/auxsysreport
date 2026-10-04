@@ -1,0 +1,15 @@
+<!-- T0.6 - predložak za Windows Sandbox. __DIST__ zamjenjuje test\Start-Sandbox.ps1 punom putanjom mape dist\ (Sandbox traži apsolutnu putanju). -->
+<Configuration>
+  <VGpu>Disable</VGpu>
+  <Networking>Disable</Networking>
+  <MappedFolders>
+    <MappedFolder>
+      <HostFolder>__DIST__</HostFolder>
+      <SandboxFolder>C:\Auxilium</SandboxFolder>
+      <ReadOnly>false</ReadOnly>
+    </MappedFolder>
+  </MappedFolders>
+  <LogonCommand>
+    <Command>cmd.exe /c start "" "C:\Auxilium\Pokreni-Auxilium-Ljuska.cmd"</Command>
+  </LogonCommand>
+</Configuration>

@@ -1,0 +1,7 @@
+# Izvor alata, izdanje v4 i ovaj changelog moraju ostati UTF-8 s BOM-om i CRLF (Windows PowerShell 5.1): Git ih ne smije pretvarati (core.autocrlf).
+# whitespace=cr-at-eol: git diff --check ne javlja CR na kraju retka kao suvišan razmak.
+src/** -text whitespace=cr-at-eol
+tests/** -text whitespace=cr-at-eol
+v4/** -text
+/PROMJENE.md -text whitespace=cr-at-eol
+test/** -text

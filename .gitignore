@@ -1,0 +1,3 @@
+# dist\ je rezultat build.ps1 i ne verzionira se.
+dist/
+test/Auxilium.generated.wsb

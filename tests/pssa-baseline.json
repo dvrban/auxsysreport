@@ -1,0 +1,185 @@
+﻿{
+  "analyzerVersion": "1.22.0",
+  "findings": [
+    {
+      "key": "DeepScan | PSAvoidGlobalVars | <skripta> | Found global variable 'global:target'.",
+      "count": 5
+    },
+    {
+      "key": "DeepScan | PSAvoidGlobalVars | Add-Item | Found global variable 'global:target'.",
+      "count": 1
+    },
+    {
+      "key": "DeepScan | PSAvoidUsingEmptyCatchBlock | <skripta> | Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
+      "count": 15
+    },
+    {
+      "key": "Ljuska | PSAvoidAssignmentToAutomaticVariable | Export-ReportToPdf | The Variable 'sender' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
+      "count": 1
+    },
+    {
+      "key": "Ljuska | PSAvoidAssignmentToAutomaticVariable | Invoke-HeaderPaint | The Variable 'Sender' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
+      "count": 1
+    },
+    {
+      "key": "Ljuska | PSAvoidAssignmentToAutomaticVariable | Invoke-HealthPaint | The Variable 'Sender' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
+      "count": 1
+    },
+    {
+      "key": "Ljuska | PSAvoidAssignmentToAutomaticVariable | New-ClientBar | The Variable 'sender' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
+      "count": 2
+    },
+    {
+      "key": "Ljuska | PSAvoidAssignmentToAutomaticVariable | New-HealthTile | The Variable 'sender' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
+      "count": 1
+    },
+    {
+      "key": "Ljuska | PSAvoidAssignmentToAutomaticVariable | New-MainForm | The Variable 'sender' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
+      "count": 3
+    },
+    {
+      "key": "Ljuska | PSAvoidUsingEmptyCatchBlock | <skripta> | Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
+      "count": 8
+    },
+    {
+      "key": "Ljuska | PSAvoidUsingEmptyCatchBlock | Clear-EventLogChannel | Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
+      "count": 3
+    },
+    {
+      "key": "Ljuska | PSAvoidUsingEmptyCatchBlock | Clear-TempFolders | Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
+      "count": 1
+    },
+    {
+      "key": "Ljuska | PSAvoidUsingEmptyCatchBlock | Clear-UpdateCache | Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
+      "count": 1
+    },
+    {
+      "key": "Ljuska | PSAvoidUsingEmptyCatchBlock | Complete-DeepScan | Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
+      "count": 3
+    },
+    {
+      "key": "Ljuska | PSAvoidUsingEmptyCatchBlock | ConvertFrom-ConsoleBytes | Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
+      "count": 1
+    },
+    {
+      "key": "Ljuska | PSAvoidUsingEmptyCatchBlock | Export-EventLogChannel | Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
+      "count": 4
+    },
+    {
+      "key": "Ljuska | PSAvoidUsingEmptyCatchBlock | Get-InvInstalledRamBytes | Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
+      "count": 1
+    },
+    {
+      "key": "Ljuska | PSAvoidUsingEmptyCatchBlock | Get-InvNetwork | Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
+      "count": 4
+    },
+    {
+      "key": "Ljuska | PSAvoidUsingEmptyCatchBlock | Get-InvSystemDisk | Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
+      "count": 3
+    },
+    {
+      "key": "Ljuska | PSAvoidUsingEmptyCatchBlock | Get-InvUninstallEntries | Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
+      "count": 2
+    },
+    {
+      "key": "Ljuska | PSAvoidUsingEmptyCatchBlock | Get-InventoryData | Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
+      "count": 9
+    },
+    {
+      "key": "Ljuska | PSAvoidUsingEmptyCatchBlock | Get-InventoryDataAsync | Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
+      "count": 3
+    },
+    {
+      "key": "Ljuska | PSAvoidUsingEmptyCatchBlock | Get-SystemInfoItems | Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
+      "count": 6
+    },
+    {
+      "key": "Ljuska | PSAvoidUsingEmptyCatchBlock | Get-SystemInfoItemsAsync | Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
+      "count": 3
+    },
+    {
+      "key": "Ljuska | PSAvoidUsingEmptyCatchBlock | Initialize-PdfState | Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
+      "count": 1
+    },
+    {
+      "key": "Ljuska | PSAvoidUsingEmptyCatchBlock | Invoke-LiveProcess | Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
+      "count": 4
+    },
+    {
+      "key": "Ljuska | PSAvoidUsingEmptyCatchBlock | New-ClientBar | Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
+      "count": 4
+    },
+    {
+      "key": "Ljuska | PSAvoidUsingEmptyCatchBlock | New-InventoryResult | Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
+      "count": 2
+    },
+    {
+      "key": "Ljuska | PSAvoidUsingEmptyCatchBlock | New-MainForm | Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
+      "count": 5
+    },
+    {
+      "key": "Ljuska | PSAvoidUsingEmptyCatchBlock | Remove-AppResources | Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
+      "count": 6
+    },
+    {
+      "key": "Ljuska | PSAvoidUsingEmptyCatchBlock | Remove-DirectoryTree | Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
+      "count": 1
+    },
+    {
+      "key": "Ljuska | PSAvoidUsingEmptyCatchBlock | Remove-PdfState | Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
+      "count": 2
+    },
+    {
+      "key": "Ljuska | PSAvoidUsingEmptyCatchBlock | Set-BusyState | Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
+      "count": 1
+    },
+    {
+      "key": "Ljuska | PSAvoidUsingEmptyCatchBlock | Set-InvField | Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
+      "count": 1
+    },
+    {
+      "key": "Ljuska | PSAvoidUsingEmptyCatchBlock | Set-LiveRow | Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
+      "count": 2
+    },
+    {
+      "key": "Ljuska | PSAvoidUsingEmptyCatchBlock | Show-SystemInfo | Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
+      "count": 2
+    },
+    {
+      "key": "Ljuska | PSAvoidUsingEmptyCatchBlock | Stop-CurrentProcess | Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
+      "count": 1
+    },
+    {
+      "key": "Ljuska | PSAvoidUsingEmptyCatchBlock | Stop-DeepScan | Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
+      "count": 3
+    },
+    {
+      "key": "Ljuska | PSAvoidUsingEmptyCatchBlock | Test-FontInstalled | Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
+      "count": 1
+    },
+    {
+      "key": "Ljuska | PSAvoidUsingEmptyCatchBlock | Update-DeepScan | Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
+      "count": 1
+    },
+    {
+      "key": "Ljuska | PSReviewUnusedParameter | Export-ReportToPdf | The parameter 'sender' has been declared but not used. ",
+      "count": 1
+    },
+    {
+      "key": "Ljuska | PSReviewUnusedParameter | New-ClientBar | The parameter 'sender' has been declared but not used. ",
+      "count": 1
+    },
+    {
+      "key": "Ljuska | PSReviewUnusedParameter | New-MainForm | The parameter 'sender' has been declared but not used. ",
+      "count": 2
+    },
+    {
+      "key": "Ljuska | PSUseDeclaredVarsMoreThanAssignments | Clear-EventLogChannel | The variable 'outTask' is assigned but never used.",
+      "count": 1
+    },
+    {
+      "key": "Ljuska | PSUseDeclaredVarsMoreThanAssignments | Write-LogManifest | The variable 'nl' is assigned but never used.",
+      "count": 1
+    }
+  ]
+}
