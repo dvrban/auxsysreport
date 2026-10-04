@@ -15,6 +15,12 @@
 .PARAMETER OutputDir
     Izlazna mapa (zadano dist\ uz ovu skriptu).
 
+.PARAMETER SkipAnalyze
+    Preskače PSScriptAnalyzer (tests\Invoke-Analyze.ps1). Zadano se pokreće ako je modul instaliran; novi nalazi (preko baselinea) ruše build.
+
+.PARAMETER RequireAnalyzer
+    Ako PSScriptAnalyzer nije instaliran, build pada umjesto da upozori i preskoči analizu.
+
 .EXAMPLE
     powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\build.ps1
     powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\build.ps1 -BuildNumber 5
@@ -22,7 +28,9 @@
 [CmdletBinding()]
 param(
     [int]$BuildNumber = 0,
-    [string]$OutputDir = (Join-Path $PSScriptRoot 'dist')
+    [string]$OutputDir = (Join-Path $PSScriptRoot 'dist'),
+    [switch]$SkipAnalyze,
+    [switch]$RequireAnalyzer
 )
 
 $ErrorActionPreference = 'Stop'
@@ -122,3 +130,17 @@ if ($commit) { [void]$manifest.Append(('# git {0}' -f $commit) + "`r`n") }
 
 Write-Host ('Sastavljeno: {0}' -f $outPath)
 Write-Host ('Dijelova: {0}, bajtova: {1}, SHA-256: {2}{3}' -f $partFiles.Count, $bytes.Length, $hash, $(if ($commit) { ', git ' + $commit } else { '' }))
+
+# --- 6. PSScriptAnalyzer (T0.3): novi nalazi u odnosu na baseline ruše build
+if (-not $SkipAnalyze) {
+    if (Get-Module -ListAvailable -Name PSScriptAnalyzer) {
+        $analyzeArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $PSScriptRoot 'tests\Invoke-Analyze.ps1'), '-DistPath', $outPath)
+        $hostExe = (Get-Process -Id $PID).Path
+        & $hostExe @analyzeArgs
+        if ($LASTEXITCODE -ne 0) { throw 'PSScriptAnalyzer: novi nalazi u odnosu na baseline (vidi iznad).' }
+    } elseif ($RequireAnalyzer) {
+        throw 'PSScriptAnalyzer nije instaliran, a zadan je -RequireAnalyzer.'
+    } else {
+        Write-Warning 'PSScriptAnalyzer nije instaliran: analiza je preskočena (Install-Module PSScriptAnalyzer -Scope CurrentUser).'
+    }
+}
