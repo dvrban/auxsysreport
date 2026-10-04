@@ -78,3 +78,8 @@ Svaki prazni `catch` u `src\` (i u dijete-skripti) pregledan je i razvrstan; dod
 - Pester test sada traži da **svaki** prazan `catch` ima `namjerno:` s razlogom (kriterij „0 praznih `catch` bez komentara“ je ispunjen), i da funkcije ubačene u runspace ne zovu `Write-AppLog`.
 - `Write-AppLog` spaja uzastopne jednake zapise („prethodni zapis ponovljen još N puta“), da greška u tajmeru ili crtanju ne napuni dnevnik.
 - PSSA baseline spušten za 20 nalaza. Ponašanje alata se nije mijenjalo osim što greške iz navedenih mjesta sada završavaju u dnevniku. Treba potvrditi na Windowsu (alat se i dalje pokreće, dnevnik bez poplave).
+
+### T1.6 (dijagnostički način): Set-StrictMode -Version 2 na zahtjev
+- Uz skriptu se može staviti prazna datoteka **`Auxilium-StrictMode.on`**: tada alat radi pod `Set-StrictMode -Version 2` (zaglavlje terminala to javlja, a u dnevniku je `WARN` redak). Zadano je isključeno, pa terenski rad ostaje kakav je bio. Greške koje strogi način otkrije završavaju u dnevniku (`Write-Terminal` Error, `ThreadException`, `DEBUG` retci iz trijažiranih `catch` blokova).
+- Statička analiza (AST) nad sastavljenom skriptom: nema čitanja varijabli koje se nigdje ne postavljaju (jedina 4 nalaza su ugniježđene funkcije koje čitaju varijable roditelja, što je dopušteno), nema `$script:` varijabli koje se čitaju a nikad ne dodjeljuju, a „kasno inicijalizirani“ nalazi (58) pregledani su i uglavnom su lažni alarmi (parametri ugniježđenih funkcija, dodjele u `try` s `continue`/`return` u `catch`). Neprovjereno ostaje: pristup nepostojećim svojstvima i `.Count` na `$null` (ovise o stvarnim podacima na Windowsu).
+- Dok se na Windowsu ne prođe puni krug radnji pod strogim načinom bez grešaka u dnevniku, uključivanje po zadanom nije opravdano.

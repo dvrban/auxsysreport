@@ -721,6 +721,10 @@ function New-MainForm {
         Write-Terminal ('Auxilium Informatika - Dijagnostika i čišćenje sustava v{0}' -f (Get-ToolVersionText)) 'Header'
         Write-Terminal ('Računalo: {0} | Korisnik: {1} | Prava: {2}' -f $env:COMPUTERNAME, [Environment]::UserName, $adminText) 'Info'
         Write-AppLog 'Info' ('Pokrenuto: v{0}, prava: {1}' -f (Get-ToolVersionText), $adminText)
+        if ($script:StrictMode) {
+            Write-AppLog 'Warn' 'Dijagnostički način: Set-StrictMode -Version 2 je uključen (Auxilium-StrictMode.on).'
+            Write-Terminal 'Dijagnostički način: Set-StrictMode 2 je uključen. Greške se bilježe u dnevnik (Dnevnik\).' 'Warn'
+        }
         try {
             # Ako je UAC podignut drugim računom, Temp i koš koji se čiste pripadaju tom računu, a ne prijavljenom korisniku.
             $consoleUser = Get-ConsoleUser

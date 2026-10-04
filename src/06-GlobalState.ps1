@@ -45,5 +45,14 @@ $script:HealthState       = 'Loading'
 $script:LiveRows          = @{}
 $script:CpuPrev           = $null
 $script:LogClearSelection = $null
+# Dijagnostički način (T1.6): ako uz skriptu postoji datoteka Auxilium-StrictMode.on, alat radi pod Set-StrictMode -Version 2 (nepostavljene
+# varijable, nepostojeća svojstva i sl. bacaju iznimku, koja završava u dnevniku i terminalu). Zadano je isključen: uključivanje na terenu bez
+# prethodnog ispitivanja na Windowsu moglo bi srušiti radnju koja danas radi. Set-StrictMode mora biti u opsegu skripte (ne u funkciji).
+$script:StrictMode = $false
+try {
+    if (-not [string]::IsNullOrEmpty($PSScriptRoot) -and [System.IO.File]::Exists([System.IO.Path]::Combine($PSScriptRoot, 'Auxilium-StrictMode.on'))) {
+        Set-StrictMode -Version 2
+        $script:StrictMode = $true
+    }
+} catch { $script:StrictMode = $false }
 #endregion GLOBAL STATE
-
