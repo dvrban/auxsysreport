@@ -1,0 +1,3 @@
+# Izvor alata mora ostati UTF-8 s BOM-om i CRLF (Windows PowerShell 5.1); Git ga ne smije pretvarati (core.autocrlf).
+src/** -text
+tests/** -text

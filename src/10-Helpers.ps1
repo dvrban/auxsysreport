@@ -1,0 +1,201 @@
+﻿#region HELPERS
+function New-Color {
+    param([int]$R, [int]$G, [int]$B)
+    return [System.Drawing.Color]::FromArgb($R, $G, $B)
+}
+
+function Test-FontInstalled {
+    param([string]$Name)
+    try {
+        $installed = New-Object System.Drawing.Text.InstalledFontCollection
+        foreach ($family in $installed.Families) {
+            if ($family.Name -eq $Name) { return $true }
+        }
+    } catch { }
+    return $false
+}
+
+# Font iz sistemske obitelji (naziv) ili privatne obitelji (FontFamily iz mape Fonts). Privatna obitelj možda nema traženi stil: tada se bira prvi dostupni.
+function New-UiFont {
+    param($Family, [double]$Size, [System.Drawing.FontStyle]$Style = [System.Drawing.FontStyle]::Regular)
+    if ($Family -is [System.Drawing.FontFamily]) {
+        $use = $null
+        foreach ($candidate in @($Style, [System.Drawing.FontStyle]::Regular, [System.Drawing.FontStyle]::Bold, [System.Drawing.FontStyle]::Italic)) {
+            if ($Family.IsStyleAvailable($candidate)) { $use = $candidate; break }
+        }
+        if ($null -ne $use) { return [System.Drawing.Font]::new($Family, [single]$Size, $use, [System.Drawing.GraphicsUnit]::Point) }
+        return [System.Drawing.Font]::new('Segoe UI', [single]$Size, $Style)
+    }
+    return [System.Drawing.Font]::new([string]$Family, [single]$Size, $Style)
+}
+
+# Opcionalno: Orbitron*.ttf (naslovi) i Sora*.ttf (tekst) iz mape "Fonts" uz skriptu, bez instalacije u Windows (radi i s USB stika).
+# Privatni fontovi se mogu crtati samo GDI+-om (DrawString), pa ih koriste samo ručno crtani elementi (zaglavlje, kartice, gumbi, natpisi);
+# RichTextBox i padajući popis ostaju na Segoe UI / Consolas. Bez mape ili uz bilo koju grešku koriste se Bahnschrift / Segoe UI.
+function Import-BrandFonts {
+    $result = @{ Head = $null; Body = $null }
+    try {
+        $root = $PSScriptRoot
+        if ([string]::IsNullOrWhiteSpace($root)) { $root = [System.IO.Directory]::GetCurrentDirectory() }
+        $dir = [System.IO.Path]::Combine($root, 'Fonts')
+        if (-not [System.IO.Directory]::Exists($dir)) { return $result }
+        $collection = New-Object System.Drawing.Text.PrivateFontCollection
+        $loaded = 0
+        $owner  = @{}
+        foreach ($prefix in @('Orbitron', 'Sora')) {
+            foreach ($file in @([System.IO.Directory]::GetFiles($dir, ($prefix + '*.ttf')))) {
+                try {
+                    $collection.AddFontFile($file)
+                    $loaded++
+                    # Obitelj pripada prefiksu datoteke koja ju je prva unijela (bira se po imenu datoteke, ne po unutarnjem nazivu obitelji).
+                    foreach ($known in $collection.Families) {
+                        if (-not $owner.ContainsKey($known.Name)) { $owner[$known.Name] = $prefix }
+                    }
+                } catch { }
+            }
+        }
+        if ($loaded -eq 0) { $collection.Dispose(); return $result }
+        $script:FontCollection = $collection
+        foreach ($family in $collection.Families) {
+            if ($null -eq $result.Head -and $owner[$family.Name] -eq 'Orbitron') { $result.Head = $family }
+            if ($null -eq $result.Body -and $owner[$family.Name] -eq 'Sora')     { $result.Body = $family }
+        }
+    } catch { }
+    return $result
+}
+
+function Initialize-Resources {
+    # Paleta prati stil Auxilium web aplikacije (Nalozi / IT Inventar): tamne plošne površine, obrub od 1 px, jantarni i tirkizni naglasci.
+    $script:Colors = @{
+        # površine
+        Form       = New-Color 9 12 20       # stranica i polja za unos
+        Data       = New-Color 9 12 20
+        TermBack   = New-Color 9 12 20
+        Header     = New-Color 17 24 38      # traka zaglavlja
+        Card       = New-Color 22 31 48      # kartice i sekundarne površine
+        Button     = New-Color 22 31 48
+        ButtonDown = New-Color 17 24 38
+        Track      = New-Color 22 31 48
+        Line       = New-Color 42 53 80      # svaki obrub od 1 px
+        # tekst
+        Text       = New-Color 232 236 245
+        White      = New-Color 232 236 245
+        Muted      = New-Color 139 147 169
+        Silver     = New-Color 139 147 169
+        Muted2     = New-Color 93 100 120    # nagovještaji, onemogućen tekst
+        # naglasci
+        Yellow     = New-Color 255 201 74    # jantarna: primarna radnja, aktivno, naglasci
+        ButtonHot  = New-Color 201 154 58    # jantarna (hover primarnog gumba)
+        OnAmber    = New-Color 19 19 19      # tamni tekst na jantarnoj
+        Cyan       = New-Color 95 216 201    # fokus, poveznice, informacije
+        Red        = New-Color 255 75 75
+        LogoRed    = New-Color 230 57 70     # samo X u logotipu
+        Progress   = New-Color 111 224 138
+        # terminal
+        TermText   = New-Color 232 236 245
+        TermHeader = New-Color 95 216 201
+        TermOk     = New-Color 111 224 138
+        TermWarn   = New-Color 255 201 74
+        TermError  = New-Color 255 75 75
+        # status
+        Good       = New-Color 111 224 138
+        Warn       = New-Color 255 201 74
+        Bad        = New-Color 255 75 75
+    }
+
+    $bold = [System.Drawing.FontStyle]::Bold
+    $brand = Import-BrandFonts
+    $headFamily = $brand.Head
+    $headStyle  = $bold
+    if ($null -eq $headFamily) {
+        if (Test-FontInstalled 'Bahnschrift') {
+            $headFamily = 'Bahnschrift'
+        } else {
+            $headFamily = 'Segoe UI Semibold'
+            $headStyle  = [System.Drawing.FontStyle]::Regular
+        }
+    }
+    $bodyFamily = $brand.Body
+    if ($null -eq $bodyFamily) { $bodyFamily = 'Segoe UI' }
+
+    $script:Fonts = @{
+        Ui        = New-UiFont 'Segoe UI' 9
+        UiBold    = New-UiFont 'Segoe UI' 9 $bold
+        Combo     = New-UiFont 'Segoe UI' 10
+        Button    = New-UiFont $bodyFamily 9
+        Card      = New-UiFont $headFamily 8.5 $headStyle
+        Strip     = New-UiFont $headFamily 8 $headStyle
+        StripBtn  = New-UiFont $bodyFamily 9
+        Hint      = New-UiFont $bodyFamily 8.5
+        Mono      = New-UiFont 'Consolas' 9.5
+        MonoBold  = New-UiFont 'Consolas' 9.5 $bold
+        Term      = New-UiFont 'Consolas' 10
+        LogoBold  = New-UiFont $headFamily 22 $headStyle
+        LogoLight = New-UiFont $bodyFamily 10
+        HeadSub   = New-UiFont $bodyFamily 10
+        HeadSmall = New-UiFont $bodyFamily 8.5
+        HealthNum = New-UiFont $headFamily 21 $headStyle
+    }
+}
+
+function Remove-AppResources {
+    foreach ($key in @($script:Fonts.Keys)) {
+        try { $script:Fonts[$key].Dispose() } catch { }
+    }
+    try { if ($script:FontCollection) { $script:FontCollection.Dispose(); $script:FontCollection = $null } } catch { }
+    try { if ($script:UI.ProgressResetTimer) { $script:UI.ProgressResetTimer.Stop(); $script:UI.ProgressResetTimer.Dispose() } } catch { }
+    try { Stop-DeepScan } catch { }
+    try { if ($script:UI.DeepTimer) { $script:UI.DeepTimer.Stop(); $script:UI.DeepTimer.Dispose() } } catch { }
+    try { if ($script:UI.LiveTimer) { $script:UI.LiveTimer.Stop(); $script:UI.LiveTimer.Dispose() } } catch { }
+    try { if ($script:UI.ProgressTimer) { $script:UI.ProgressTimer.Stop(); $script:UI.ProgressTimer.Dispose() } } catch { }
+    try { if ($script:UI.Form) { $script:UI.Form.Dispose() } } catch { }
+}
+
+function Format-Bytes {
+    param([double]$Bytes)
+    if ($Bytes -ge 1TB) { return ('{0:N2} TB' -f ($Bytes / 1TB)) }
+    if ($Bytes -ge 1GB) { return ('{0:N1} GB' -f ($Bytes / 1GB)) }
+    if ($Bytes -ge 1MB) { return ('{0:N1} MB' -f ($Bytes / 1MB)) }
+    if ($Bytes -ge 1KB) { return ('{0:N1} KB' -f ($Bytes / 1KB)) }
+    return ('{0:N0} B' -f $Bytes)
+}
+
+function Format-Duration {
+    param([TimeSpan]$Span)
+    return ('{0:00}:{1:00}:{2:00}' -f [int][Math]::Floor($Span.TotalHours), $Span.Minutes, $Span.Seconds)
+}
+
+# Povremeno ispumpa Windows poruke kako sučelje ne bi "zamrznulo" tijekom dugih operacija.
+function Update-Ui {
+    if ($script:PumpWatch.ElapsedMilliseconds -ge 30) {
+        [System.Windows.Forms.Application]::DoEvents()
+        $script:PumpWatch.Restart()
+    }
+}
+
+function Test-StopRequested {
+    return ($script:CancelRequested -or $script:Closing)
+}
+
+function Wait-TaskUi {
+    param($Task, [int]$TimeoutMs = 15000)
+    $watch = [System.Diagnostics.Stopwatch]::StartNew()
+    while (-not $Task.IsCompleted) {
+        if ((Test-StopRequested) -or $watch.ElapsedMilliseconds -gt $TimeoutMs) { return $false }
+        Update-Ui
+        Start-Sleep -Milliseconds 15
+    }
+    return $true
+}
+
+function Resolve-SystemTool {
+    param([Parameter(Mandatory)][string]$Name)
+    $dir = Join-Path $env:SystemRoot 'System32'
+    if ([Environment]::Is64BitOperatingSystem -and -not [Environment]::Is64BitProcess) {
+        $sysnative = Join-Path $env:SystemRoot 'Sysnative'
+        if (Test-Path -LiteralPath $sysnative) { $dir = $sysnative }
+    }
+    return (Join-Path $dir $Name)
+}
+#endregion HELPERS
+
