@@ -106,3 +106,9 @@ Prvo pokretanje s `Auxilium-StrictMode.on` otkrilo je dvije greške (PDF izvješ
 - Pester testovi `BackgroundRunspace.Tests.ps1` pokreću pravi runspace (i na Linuxu): rezultat i parametri, istek vremena (sink zadržava prikupljeno), prekid korisnika, `-HonorCancel`, greške u dnevniku, nedostajuća ubačena funkcija.
 - Nije napravljeno iz nacrta 4.1: red poruka za napredak (`ConcurrentQueue`), automatsko zatvaranje ovisnosti u runtimeu (`Get-FunctionClosure`; provjera ostaje pri buildu) i `CreateDefault2()` (brži start, ali se ne može isprobati bez Windowsa).
 - PSSA baseline: 3 prazna `catch` preseljena u novu funkciju, a 6 nalaza manje u starim (neto −3).
+
+### T2.3 – popis dnevnika u pozadini
+- `Get-WinEvent -ListLog *` (B2: 0,6–0,7 s, na sporom disku i više, bez pumpanja sučelja) sada se izvodi u pozadinskom runspaceu preko `Invoke-BackgroundRunspace` (nova ubačena funkcija `Get-LogChannelInfo`); `Get-LogChannelPlan` iz rezultata gradi plan kao i prije (isti filtri i sortiranje).
+- Prekid daje prazan plan (pozivatelj već provjerava `Test-StopRequested`); istek (60 s) je sada **greška** („Popis dnevnika događaja nije dobiven…“), a ne tiha poruka „nema dnevnika“.
+- Pester testovi s lažnim runspaceom (`LogChannelPlan.Tests.ps1`); provjera ubačenih funkcija sama je pronašla novo mjesto poziva. Ispravljen je i bug u `Test-Closure.ps1` (`HashSet` s jednim elementom se raspakirao pod strogim načinom).
+- Treba potvrditi na Windowsu: **Izvezi i obriši dnevnike** (odbiti potvrdu je dovoljno) mora pokazati popis i dalje raditi, a sučelje ostati živo tijekom popisa.

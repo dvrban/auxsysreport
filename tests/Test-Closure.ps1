@@ -54,7 +54,7 @@ function Get-Closure {
             if ($callee -and $defined.ContainsKey($callee)) { $todo.Push($callee) }
         }
     }
-    return $seen
+    return ,$seen   # zarez: inače PowerShell raspakira HashSet (jedan element postaje string bez svojstva Count)
 }
 
 $sites = New-Object System.Collections.Generic.List[object]

@@ -2,11 +2,23 @@
 # Izvoz svih Windows dnevnika događaja u TXT (uz izvještaj), pa brisanje svakog dnevnika TEK NAKON što je njegov izvoz uspješno zapisan i provjeren.
 # $script:LogClearSelection: $null = svi dnevnici koji imaju zapise. Izbornik za odabir dnevnika dodaje se kasnije: dovoljno je postaviti popis
 # naziva dnevnika (npr. @('System', 'Application')), a ostatak zadatka (izvoz, provjera, brisanje, popis) se ne mijenja.
+# Popis svih Windows dnevnika događaja (Get-WinEvent -ListLog * traje 0,6-0,7 s, a na sporom disku i duže). Izvodi se u pozadinskom runspaceu (T2.3), pa ne smije
+# koristiti $script: ni kontrole; vraća samo osnovne podatke (naziv, broj zapisa, veličina).
+function Get-LogChannelInfo {
+    foreach ($log in @(Get-WinEvent -ListLog * -ErrorAction SilentlyContinue)) {
+        [pscustomobject]@{ LogName = [string]$log.LogName; RecordCount = $log.RecordCount; FileSize = $log.FileSize }
+    }
+}
+
+# Plan izvoza: dnevnici koji imaju zapise. Popis se prikuplja u pozadini uz pumpanje sučelja; prekid daje prazan plan (pozivatelj provjerava Test-StopRequested),
+# a istek vremena je greška (ne smije izgledati kao "nema dnevnika").
 function Get-LogChannelPlan {
-    param($Selection = $null)
+    param($Selection = $null, [int]$TimeoutSeconds = 60)
+    $run = Invoke-BackgroundRunspace -Functions @('Get-LogChannelInfo') -Command 'Get-LogChannelInfo' -TimeoutSeconds $TimeoutSeconds
+    if ($run.State -eq 'Cancelled') { return @() }
+    if ($run.State -eq 'TimedOut') { throw ('Popis dnevnika događaja nije dobiven u {0} s (Windows Event Log ne odgovara).' -f $TimeoutSeconds) }
     $plan = New-Object System.Collections.Generic.List[object]
-    $logs = @(Get-WinEvent -ListLog * -ErrorAction SilentlyContinue)
-    foreach ($log in ($logs | Sort-Object -Property LogName)) {
+    foreach ($log in (@($run.Output) | Where-Object { $null -ne $_ } | Sort-Object -Property LogName)) {
         $records = 0
         if ($null -ne $log.RecordCount) { $records = [int64]$log.RecordCount }
         if ($records -le 0) { continue }
