@@ -142,10 +142,6 @@
       "count": 6
     },
     {
-      "key": "Ljuska | PSAvoidUsingEmptyCatchBlock | Remove-DeepTempFile | Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
-      "count": 1
-    },
-    {
       "key": "Ljuska | PSAvoidUsingEmptyCatchBlock | Remove-DirectoryTree | Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
       "count": 1
     },

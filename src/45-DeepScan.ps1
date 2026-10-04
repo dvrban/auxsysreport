@@ -31,8 +31,12 @@ function New-RawReader {
 function Remove-DeepTempFile {
     $d = $script:Deep
     if ($d.TempFile) {
-        try { [System.IO.File]::Delete([string]$d.TempFile) } catch { }
+        try { [System.IO.File]::Delete([string]$d.TempFile) } catch { Write-AppLog 'Debug' 'Brisanje privremene skripte' $_ }
         $d.TempFile = $null
+    }
+    if ($d.RunDir) {
+        try { [System.IO.Directory]::Delete([string]$d.RunDir, $true) } catch { Write-AppLog 'Debug' 'Brisanje privremene mape' $_ }
+        $d.RunDir = $null
     }
 }
 
@@ -49,6 +53,52 @@ function Stop-DeepScan {
     if ($null -ne $script:UI.DeepTimer) { try { $script:UI.DeepTimer.Stop() } catch { } }
 }
 
+# Privatna mapa za privremenu skriptu skeniranja (T1.8). %TEMP% može pisati i proces srednje razine integriteta istog korisnika, a pozadinski
+# proces nasljeđuje povišeni token: zamjena datoteke između zapisa i pokretanja bila bi podizanje ovlasti. Zato skripta ide u
+# %ProgramData%\Auxilium\run-<guid>\ s pristupom samo za Administrators i SYSTEM (bez nasljeđivanja). Alat se uvijek izvodi povišeno.
+function New-PrivateRunFolder {
+    $adminSid  = New-Object System.Security.Principal.SecurityIdentifier('S-1-5-32-544')
+    $systemSid = New-Object System.Security.Principal.SecurityIdentifier('S-1-5-18')
+    $inherit   = [System.Security.AccessControl.InheritanceFlags]'ContainerInherit, ObjectInherit'
+    $security  = New-Object System.Security.AccessControl.DirectorySecurity
+    $security.SetAccessRuleProtection($true, $false)
+    foreach ($sid in @($adminSid, $systemSid)) {
+        $security.AddAccessRule((New-Object System.Security.AccessControl.FileSystemAccessRule($sid, 'FullControl', $inherit, 'None', 'Allow')))
+    }
+    if ([string]::IsNullOrWhiteSpace($env:ProgramData)) { throw 'ProgramData nije dostupan.' }
+    $parent = [System.IO.Path]::Combine($env:ProgramData, 'Auxilium')
+    if (-not [System.IO.Directory]::Exists($parent)) {
+        $parentInfo = [System.IO.Directory]::CreateDirectory($parent)
+        $parentInfo.SetAccessControl($security)
+    }
+    # Nadređenu mapu koju je netko drugi unaprijed stvorio ne koristimo (običan korisnik može stvoriti podmapu u ProgramData).
+    $owner = (New-Object System.IO.DirectoryInfo($parent)).GetAccessControl().GetOwner([System.Security.Principal.SecurityIdentifier])
+    if ($owner.Value -ne $adminSid.Value -and $owner.Value -ne $systemSid.Value) { throw ('Mapa {0} nije u vlasništvu administratora.' -f $parent) }
+    $dir = [System.IO.Path]::Combine($parent, ('run-' + [guid]::NewGuid().ToString('N')))
+    $info = [System.IO.Directory]::CreateDirectory($dir)
+    $info.SetAccessControl($security)
+    return $dir
+}
+
+# Datoteka mora sadržavati točno očekivane bajtove (dodatna obrana neposredno prije pokretanja).
+function Test-FileHasBytes {
+    param([string]$Path, [byte[]]$Expected)
+    $actual = [System.IO.File]::ReadAllBytes($Path)
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try { return ([BitConverter]::ToString($sha.ComputeHash($actual)) -ceq [BitConverter]::ToString($sha.ComputeHash($Expected))) } finally { $sha.Dispose() }
+}
+
+# Brisanje zaostalih mapa run-* (alat je prekinut silom) starijih od zadanog broja dana.
+function Remove-StaleRunFolders {
+    param([string]$Parent, [int]$MaxAgeDays = 1)
+    if (-not [System.IO.Directory]::Exists($Parent)) { return }
+    foreach ($dir in [System.IO.Directory]::GetDirectories($Parent, 'run-*')) {
+        try {
+            if (([datetime]::UtcNow - [System.IO.Directory]::GetLastWriteTimeUtc($dir)).TotalDays -ge $MaxAgeDays) { [System.IO.Directory]::Delete($dir, $true) }
+        } catch { Write-AppLog 'Debug' 'Brisanje zaostale mape run-*' $_ }
+    }
+}
+
 function Start-DeepScan {
     param([string]$ScriptText = '')
 
@@ -61,9 +111,15 @@ function Start-DeepScan {
         # Skripta je preduga za -EncodedCommand (granica 32 767 znakova): izvodi se iz privremene datoteke koja se briše nakon završetka.
         $psArgs = $null
         try {
-            $tempScript = [System.IO.Path]::Combine([System.IO.Path]::GetTempPath(), ('Auxilium_scan_{0}.ps1' -f [guid]::NewGuid().ToString('N')))
-            [System.IO.File]::WriteAllText($tempScript, $ScriptText, (New-Object System.Text.UTF8Encoding($true)))
+            if (-not [string]::IsNullOrWhiteSpace($env:ProgramData)) { Remove-StaleRunFolders ([System.IO.Path]::Combine($env:ProgramData, 'Auxilium')) }
+            $runDir = New-PrivateRunFolder
+            $d.RunDir = $runDir
+            $tempScript = [System.IO.Path]::Combine($runDir, 'scan.ps1')
+            $enc = New-Object System.Text.UTF8Encoding($true)
+            $scriptBytes = $enc.GetPreamble() + $enc.GetBytes($ScriptText)
+            [System.IO.File]::WriteAllBytes($tempScript, $scriptBytes)
             $d.TempFile = $tempScript
+            if (-not (Test-FileHasBytes $tempScript $scriptBytes)) { throw 'Privremena skripta je izmijenjena prije pokretanja.' }
             $psArgs = '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "{0}"' -f $tempScript
         } catch {
             $writeError = $_.Exception.Message

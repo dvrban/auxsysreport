@@ -30,7 +30,7 @@ $script:ConsoleUser       = $null
 $script:ReportCompany     = $null
 $script:FocusCompanyBox   = $false
 $script:AbandonedRunspace  = $false
-$script:Deep             = @{ State = 'Idle'; Process = $null; Readers = @(); Items = @(); Error = ''; Watch = $null; TimeoutSec = 120; TempFile = $null }
+$script:Deep             = @{ State = 'Idle'; Process = $null; Readers = @(); Items = @(); Error = ''; Watch = $null; TimeoutSec = 120; TempFile = $null; RunDir = $null }
 $script:PdfCancelled      = $false
 $script:PumpWatch         = [System.Diagnostics.Stopwatch]::StartNew()
 $script:Pdf               = $null
