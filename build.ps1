@@ -18,6 +18,9 @@
 .PARAMETER SkipAnalyze
     Preskače PSScriptAnalyzer (tests\Invoke-Analyze.ps1). Zadano se pokreće ako je modul instaliran; novi nalazi (preko baselinea) ruše build.
 
+.PARAMETER SkipClosureCheck
+    Preskače tests\Test-Closure.ps1 (AST provjera popisa funkcija ubačenih u runspaceove; zadano se pokreće i ruši build).
+
 .PARAMETER RequireAnalyzer
     Ako PSScriptAnalyzer nije instaliran, build pada umjesto da upozori i preskoči analizu.
 
@@ -30,6 +33,7 @@ param(
     [int]$BuildNumber = 0,
     [string]$OutputDir = (Join-Path $PSScriptRoot 'dist'),
     [switch]$SkipAnalyze,
+    [switch]$SkipClosureCheck,
     [switch]$RequireAnalyzer
 )
 
@@ -131,7 +135,14 @@ if ($commit) { [void]$manifest.Append(('# git {0}' -f $commit) + "`r`n") }
 Write-Host ('Sastavljeno: {0}' -f $outPath)
 Write-Host ('Dijelova: {0}, bajtova: {1}, SHA-256: {2}{3}' -f $partFiles.Count, $bytes.Length, $hash, $(if ($commit) { ', git ' + $commit } else { '' }))
 
-# --- 6. PSScriptAnalyzer (T0.3): novi nalazi u odnosu na baseline ruše build
+# --- 6. Zatvaranje ovisnosti ubačenih funkcija (T0.4): nedostajuća funkcija ruši build, ne runtime
+if (-not $SkipClosureCheck) {
+    $closureHost = (Get-Process -Id $PID).Path
+    & $closureHost -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'tests\Test-Closure.ps1') -Path $outPath
+    if ($LASTEXITCODE -ne 0) { throw 'Zatvaranje ovisnosti ubačenih funkcija nije u redu (vidi iznad).' }
+}
+
+# --- 7. PSScriptAnalyzer (T0.3): novi nalazi u odnosu na baseline ruše build
 if (-not $SkipAnalyze) {
     if (Get-Module -ListAvailable -Name PSScriptAnalyzer) {
         $analyzeArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $PSScriptRoot 'tests\Invoke-Analyze.ps1'), '-DistPath', $outPath)
