@@ -226,6 +226,26 @@ function ConvertFrom-DeepBytes {
 
 # Razlog neuspjeha iz standardne pogreške pozadinskog procesa (blokiran skriptom, parse greška...). Putanje i korisničko ime se zamjenjuju
 # oznakama jer poruka može završiti u izvještaju za klijenta.
+# Trajanje skupina dijete-skripte (kumulativno, ms) iz njezina stderr-a: "AUXTIMING dnevnici=3100;sigurnost=5200;softver=9800;update=14700".
+# Vraća tekst za dnevnik ili prazan niz ako mjerenja nema (npr. skripta je prekinuta prije kraja).
+function Get-DeepTimingText {
+    param([byte[]]$Bytes)
+    if (-not $Bytes -or $Bytes.Length -eq 0) { return '' }
+    $m = [regex]::Match([System.Text.Encoding]::UTF8.GetString($Bytes), '(?m)^AUXTIMING (?<v>[^\r\n]+)')
+    if (-not $m.Success) { return '' }
+    $prev = [int64]0
+    $parts = New-Object System.Collections.Generic.List[string]
+    foreach ($pair in ($m.Groups['v'].Value -split ';')) {
+        $kv = $pair -split '=', 2
+        $end = [int64]0
+        if ($kv.Count -ne 2 -or -not [int64]::TryParse($kv[1], [ref]$end)) { continue }
+        $parts.Add(('{0} {1:N1} s' -f $kv[0], (($end - $prev) / 1000.0)))
+        $prev = $end
+    }
+    if ($parts.Count -eq 0) { return '' }
+    return ('{0} (ukupno {1:N1} s)' -f ($parts -join ', '), ($prev / 1000.0))
+}
+
 function Get-DeepStderrHint {
     param([byte[]]$Bytes)
     if (-not $Bytes -or $Bytes.Length -eq 0) { return '' }
@@ -236,6 +256,7 @@ function Get-DeepStderrHint {
         $s = $ln.Trim()
         if (-not $s) { continue }
         if ($s -match '^(At |\+ |Windows PowerShell|Copyright|Install the latest|Try the new)') { continue }
+        if ($s -like 'AUXTIMING *') { continue }
         $keep.Add($s)
     }
     $hint = (($keep.ToArray()) -join ' ')
@@ -259,6 +280,10 @@ function Complete-DeepScan {
     $d.Process = $null
     $d.Readers = @()
     Remove-DeepTempFile
+    try {
+        $timingText = Get-DeepTimingText $errBytes
+        if ($timingText) { Write-AppLog 'Info' ('Duboko skeniranje, trajanje po skupinama: ' + $timingText) }
+    } catch { Write-AppLog 'Debug' 'Mjerenje dubokog skeniranja' $_ }
 
     # Bez JSON-a na izlazu (i s pogreškom pri izlasku): skript je blokiran ili se nije mogao pokrenuti, pa se razlog traži u stderr-u.
     $noJson = $true
