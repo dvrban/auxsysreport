@@ -8,7 +8,8 @@
       1. SHA-256 sastavljene datoteke mora biti jednak SHA-256 izdanja (UTF-8 s BOM-om, CRLF),
       2. popis funkcija najviše razine (AST) iz sastavljene datoteke mora biti jednak popisu iz izdanja, istim redoslijedom,
       3. zbroj funkcija definiranih u dijelovima src\*.ps1 (svaki parsiran zasebno) mora dati isti popis,
-      4. svaki dio, kao i deep\DeepScan.ps1, mora se parsirati bez sintaksnih grešaka.
+      4. svaki dio, kao i deep\DeepScan.ps1, mora se parsirati bez sintaksnih grešaka,
+      5. svaka datoteka u src\ mora počinjati UTF-8 BOM-om (i nigdje drugdje ga nemati) i imati samo CRLF krajeve redaka.
     Povratni kod 0 = sve prolazi, 1 = barem jedna provjera ne prolazi.
 
     Provjera vrijedi samo dok se src\ ne razlikuje od izdanja (do prve izmjene koda u sljedećem tiketu). Poslije nje je zamjenjuju
@@ -66,7 +67,7 @@ function ConvertTo-FileBytes {
 }
 
 function Get-ParsedScript {
-    param([Parameter(Mandatory)][string]$Text)
+    param([Parameter(Mandatory)][AllowEmptyString()][string]$Text)
     $tokens = $null
     $errors = $null
     $ast = [System.Management.Automation.Language.Parser]::ParseInput($Text, [ref]$tokens, [ref]$errors)
@@ -76,11 +77,13 @@ function Get-ParsedScript {
 function Get-TopLevelFunctionNames {
     param([Parameter(Mandatory)]$Parsed)
     $found = $Parsed.Ast.FindAll({ param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $false)
-    return @($found | ForEach-Object { $_.Name })
+    return ,@($found | ForEach-Object { $_.Name })   # zarez: prazan popis ostaje polje (inače bi ga PowerShell pretvorio u $null)
 }
 
 function Get-ListDifference {
     param([string[]]$Expected, [string[]]$Actual)
+    $Expected = @($Expected)
+    $Actual   = @($Actual)
     $limit = [Math]::Min($Expected.Count, $Actual.Count)
     for ($i = 0; $i -lt $limit; $i++) {
         if ($Expected[$i] -cne $Actual[$i]) { return ('prva razlika na mjestu {0}: "{1}" / "{2}"' -f ($i + 1), $Expected[$i], $Actual[$i]) }
@@ -108,6 +111,29 @@ $embeds = @(
     @{ Marker = '#<<NATIVE_CS>>#'; File = 'native\Native.cs' },
     @{ Marker = '#<<DEEP_SCAN>>#'; File = 'deep\DeepScan.ps1' }
 )
+
+# --- 0. Kodiranje svake datoteke u src\: UTF-8 BOM na početku (i nigdje drugdje) i samo CRLF.
+# Sastavljanje (Read-Utf8) prihvaća i datoteku bez BOM-a, pa ovo ne bi uhvatila provjera SHA-256, a Windows PowerShell 5.1 bi
+# pojedini dio (dot-source, Get-Content) pročitao kao ANSI i pokvario hrvatska slova.
+Write-Host 'Kodiranje datoteka'
+$encodingFiles = @($partFiles) + @((Join-Path $srcRoot $embeds[0].File), (Join-Path $srcRoot $embeds[1].File))
+$encodingProblems = 0
+foreach ($file in $encodingFiles) {
+    $raw = [System.IO.File]::ReadAllBytes($file)
+    $shortName = $file.Substring($srcRoot.Length).TrimStart('\', '/')
+    if ($raw.Length -lt 3 -or $raw[0] -ne 0xEF -or $raw[1] -ne 0xBB -or $raw[2] -ne 0xBF) { Add-Failure ('{0}: nema UTF-8 BOM na početku' -f $shortName); $encodingProblems++; continue }
+    $lone = 0
+    $extraBom = 0
+    for ($i = 3; $i -lt $raw.Length; $i++) {
+        $b = $raw[$i]
+        if ($b -eq 10 -and $raw[$i - 1] -ne 13) { $lone++ }
+        elseif ($b -eq 13 -and ($i + 1 -ge $raw.Length -or $raw[$i + 1] -ne 10)) { $lone++ }
+        elseif ($b -eq 0xEF -and $i + 2 -lt $raw.Length -and $raw[$i + 1] -eq 0xBB -and $raw[$i + 2] -eq 0xBF) { $extraBom++ }
+    }
+    if ($lone -gt 0) { Add-Failure ('{0}: {1} prekida retka koji nisu CRLF' -f $shortName, $lone); $encodingProblems++ }
+    if ($extraBom -gt 0) { Add-Failure ('{0}: BOM se pojavljuje i usred datoteke ({1}x)' -f $shortName, $extraBom); $encodingProblems++ }
+}
+if ($encodingProblems -eq 0) { Write-Pass ('svih {0} datoteka: UTF-8 s BOM-om na početku, samo CRLF' -f $encodingFiles.Count) }
 Write-Host 'Sastavljanje'
 foreach ($embed in $embeds) {
     $needle = $embed.Marker + "`r`n"
@@ -139,8 +165,8 @@ $baselineParsed  = Get-ParsedScript (Read-Utf8 $baselinePath)
 $assembledParsed = Get-ParsedScript $assembled
 $baselineNames   = Get-TopLevelFunctionNames $baselineParsed
 $assembledNames  = Get-TopLevelFunctionNames $assembledParsed
-if ($baselineParsed.Errors.Count -gt 0)  { Add-Failure ('izdanje ima {0} sintaksnih grešaka: {1}' -f $baselineParsed.Errors.Count, $baselineParsed.Errors[0].Message) }
-if ($assembledParsed.Errors.Count -gt 0) { Add-Failure ('sastavljena datoteka ima {0} sintaksnih grešaka: {1}' -f $assembledParsed.Errors.Count, $assembledParsed.Errors[0].Message) }
+if ($baselineParsed.Errors.Count -gt 0)  { Add-Failure ('izdanje se ne parsira bez grešaka (broj grešaka: {0}, prva: {1})' -f $baselineParsed.Errors.Count, $baselineParsed.Errors[0].Message) }
+if ($assembledParsed.Errors.Count -gt 0) { Add-Failure ('sastavljena datoteka se ne parsira bez grešaka (broj grešaka: {0}, prva: {1})' -f $assembledParsed.Errors.Count, $assembledParsed.Errors[0].Message) }
 if (($baselineNames -join "`n") -ceq ($assembledNames -join "`n")) {
     Write-Pass ('sastavljena datoteka definira istih {0} funkcija, istim redoslijedom' -f $baselineNames.Count)
 } else {
@@ -153,7 +179,7 @@ $partNames = New-Object System.Collections.Generic.List[string]
 foreach ($partFile in ($partFiles + (Join-Path $srcRoot $embeds[1].File))) {
     $parsed = Get-ParsedScript (Read-Utf8 $partFile)
     $shortName = [System.IO.Path]::GetFileName($partFile)
-    if ($parsed.Errors.Count -gt 0) { Add-Failure ('{0}: {1} sintaksnih grešaka (prva: {2})' -f $shortName, $parsed.Errors.Count, $parsed.Errors[0].Message); continue }
+    if ($parsed.Errors.Count -gt 0) { Add-Failure ('{0}: ne parsira se bez grešaka (broj grešaka: {1}, prva: {2})' -f $shortName, $parsed.Errors.Count, $parsed.Errors[0].Message); continue }
     if ($partFile -in $partFiles) { foreach ($name in (Get-TopLevelFunctionNames $parsed)) { $partNames.Add($name) } }
 }
 if (($baselineNames -join "`n") -ceq ($partNames -join "`n")) {
@@ -163,7 +189,7 @@ if (($baselineNames -join "`n") -ceq ($partNames -join "`n")) {
 }
 
 if ($failures.Count -gt 0) {
-    Write-Host ('NEUSPJEH: {0} provjera ne prolazi.' -f $failures.Count) -ForegroundColor Red
+    Write-Host ('NEUSPJEH: broj provjera koje ne prolaze: {0}.' -f $failures.Count) -ForegroundColor Red
     exit 1
 }
 Write-Host 'SVE PROVJERE PROLAZE.' -ForegroundColor Green

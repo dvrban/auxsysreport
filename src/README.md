@@ -1,7 +1,7 @@
 ﻿# src\ – izvor alata (varijanta „Ljuska“)
 
 Izvor varijante „Ljuska“ podijeljen je iz jedne datoteke (v0.04, 6606 redaka) u dijelove po regijama (`#region` … `#endregion`).
-Podjela je **mehanička** (tiket T0.1): ni jedan redak koda nije izmijenjen, a dijelovi se sastavljaju natrag u
+Podjela je **mehanička** (tiket T0.1): nijedan redak koda nije izmijenjen, a dijelovi se sastavljaju natrag u
 `v4\Auxilium-Dijagnostika-Ljuska.ps1` **bajt po bajt** (SHA-256 `D8E2DDDC…EA2F4`). Izdanje `v4\` ostaje nepromijenjeno.
 
 Ovdje se još ne gradi ništa: `build.ps1` dolazi u T0.2. Do tada se alat i dalje pokreće iz `v4\`.
@@ -15,7 +15,7 @@ Ovdje se još ne gradi ništa: `build.ps1` dolazi u T0.2. Do tada se alat i dalj
 | `03-Bootstrap.ps1` | učitavanje sklopova WinForms/Drawing, postavke aplikacije, `Test-IsAdministrator` | 45–61 |
 | `04-Elevation.ps1` | regija ELEVATION (UAC, ponovno pokretanje u STA) | 62–107 |
 | `05-Native.ps1` | regija NATIVE (`Add-Type`); C# je u `native\Native.cs` | 108–549 |
-| `06-GlobalState.ps1` | regija GLOBAL STATE (`$script:BuildNumber`, registri) | 550–593 |
+| `06-GlobalState.ps1` | regija GLOBAL STATE (`$script:BuildNumber`, varijable stanja) | 550–593 |
 | `10-Helpers.ps1` | HELPERS | 594–794 |
 | `20-Portable.ps1` | PORTABLE (USB stick, postavke) | 795–1015 |
 | `30-Terminal.ps1` | TERMINAL / PROGRESS | 1016–1185 |
@@ -41,17 +41,21 @@ Brojevi u nazivima daju redoslijed sastavljanja i imaju razmake za nove dijelove
 ## Pravila sastavljanja (ugovor za `build.ps1`, T0.2)
 
 1. Dijelovi `src\*.ps1` spajaju se redom po nazivu (ordinalno, ne po jezičnim pravilima), **bez razdjelnika**: svaki dio već završava
-   svojim prekidom retka i praznim retkom između regija.
+   svojim prekidom retka i praznim retkom (retcima) do sljedeće regije. Ti prazni retci su dio sadržaja: `45-DeepScan.ps1` namjerno završava s dva,
+   a `90-Main.ps1` s nijednim; uređivač koji briše završne prazne retke promijenio bi sastavljene bajtove.
 2. Svaka datoteka čita se kao UTF-8 (BOM se odbacuje); sastavljena datoteka piše se kao **UTF-8 s BOM-om i CRLF**.
 3. Redak `#<<NATIVE_CS>>#` zamjenjuje se cijelim sadržajem `native\Native.cs`, a redak `#<<DEEP_SCAN>>#` cijelim sadržajem
-   `deep\DeepScan.ps1` (oznaka zajedno s krajem retka ← cijela datoteka zajedno s krajem zadnjeg retka). Svaka oznaka postoji u dijelovima
-   točno jednom. Datoteke su tijela here-stringova `@'…'@`: ne smiju sadržavati redak koji počinje s `'@`.
+   `deep\DeepScan.ps1`. Zamjenjuje se oznaka **zajedno s krajem njezina retka**, a umeće se cijela datoteka **zajedno s krajem njezina zadnjeg retka**.
+   Svaka oznaka postoji u dijelovima točno jednom. Datoteke su tijela here-stringova `@'…'@`: ne smiju sadržavati redak koji počinje s `'@`.
+   Zamjena mora biti **doslovna** (`String.Replace`): `-replace` i `[regex]::Replace` tumače `$_` i `$'` u `DeepScan.ps1` kao oznake zamjene
+   i daju pokvarenu datoteku od oko 9,7 MB.
 
 ## Kodiranje i krajevi redaka
 
 Sve datoteke u `src\` su UTF-8 **s BOM-om** i **CRLF** (kao i izvornik): bez BOM-a Windows PowerShell 5.1 hrvatska slova (Š, Ž, Č, Ć, Đ)
-čita kao ANSI. `.gitattributes` označava `src\` i `tests\` kao `-text`, pa Git ne mijenja krajeve redaka ni na jednom računalu
-(inače bi `core.autocrlf` mogao pokvariti bajt-identičnost). Pri uređivanju sačuvajte BOM i CRLF.
+čita kao ANSI. `.gitattributes` označava `src\`, `tests\`, `v4\` i korijenski `PROMJENE.md` kao `-text`, pa Git ne mijenja krajeve redaka ni na jednom računalu
+(inače bi `core.autocrlf` mogao pokvariti bajt-identičnost novih datoteka ili izdanja `v4\`); `whitespace=cr-at-eol` sprječava da `git diff --check`
+CR javlja kao suvišan razmak. Pri uređivanju sačuvajte BOM i CRLF: `tests\Test-SrcSplit.ps1` to provjerava za svaku datoteku u `src\`.
 
 ## Provjera
 
@@ -59,13 +63,19 @@ Sve datoteke u `src\` su UTF-8 **s BOM-om** i **CRLF** (kao i izvornik): bez BOM
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\Test-SrcSplit.ps1
 ```
 
-Provjerava SHA-256 sastavljene datoteke prema izdanju, isti popis od 122 funkcije najviše razine (AST) i da se svaki dio parsira bez grešaka.
+Provjerava BOM i CRLF svake datoteke, SHA-256 sastavljene datoteke prema izdanju, isti popis od 122 funkcije najviše razine (AST)
+i da se svaki dio parsira bez grešaka.
 Vrijedi samo dok `src\` odgovara izdanju v0.04; poslije prve izmjene koda zamjenjuju je `build.ps1` i Pester testovi (T0.2, T0.5).
 
 ## Za sljedeće tikete
 
-- `04-Elevation.ps1` i `90-Main.ps1` izvode radnje pri učitavanju (podizanje na administratora, otvaranje prozora): za Pester (T0.5) treba ih
-  izuzeti iz dot-sourcea, kao što to danas rade harnessi (regex po regijama).
-- `$PSScriptRoot` koristi se u `10-Helpers.ps1` i `20-Portable.ps1` za pronalaženje mape izdanja. Sastavljena datoteka u `dist\` radi
-  ispravno, ali dot-source dijelova iz `src\` daje mapu `src\`.
-- `04-Elevation.ps1` ponovno pokreće `$PSCommandPath`: izvor iz `src\` ne može se pokretati izravno, samo sastavljena datoteka.
+- Pri učitavanju izvode radnje, a ne samo definiraju funkcije: `02-Encoding.ps1` (kodiranje konzole), `03-Bootstrap.ps1` (postavke WinForms za cijeli proces),
+  `04-Elevation.ps1` (podizanje na administratora, ponovno pokretanje i `exit`), `05-Native.ps1` (`Add-Type` prevodi C#; pri neuspjehu `exit 1`),
+  `06-GlobalState.ps1` i `90-Main.ps1` (otvara prozor). Za Pester (T0.5) ih treba izuzeti iz dot-sourcea; izvještaj o reviziji navodi da to danas
+  rade harnessi (regex po regijama), a njih u ovom repozitoriju nema.
+- `` koristi se u `10-Helpers.ps1` i `20-Portable.ps1` za pronalaženje mape izdanja: dot-source dijelova iz `src\` daje mapu `src\`,
+  a sastavljena datoteka daje mapu u kojoj leži. `04-Elevation.ps1` ponovno pokreće ``, pa se izvor iz `src\` ne može pokretati
+  izravno, samo sastavljena datoteka.
+- Skin sloj (T3.3) mora se umetnuti **prije** `90-Main.ps1`: `90-Main.ps1` otvara prozor i ne vraća se dok se on ne zatvori, a paleta `:Colors`
+  puni se u `Initialize-Resources` (`10-Helpers.ps1`) i koristi u `30-`, `40-`, `60-` i `85-`. Dio koji bi došao iza `90-Main.ps1` izvršio bi se tek nakon zatvaranja prozora.
+- `build.ps1`, `dist\` i Pester testovi još ne postoje (T0.2, T0.5); do tada se alat pokreće iz `v4\`.
