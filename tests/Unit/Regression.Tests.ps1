@@ -129,3 +129,21 @@ Describe 'T1.12 otisak alata' {
         $script:allSrcText | Should -Match "'Verzija alata' \(Get-ToolVersionText\)"
     }
 }
+
+Describe 'Treptanje panela statusa: iscrtavanje se isključuje tijekom gradnje' {
+    It 'Show-SystemInfo i Set-LiveRow uključuju iscrtavanje natrag u finally (inače bi panel ostao zamrznut)' {
+        foreach ($name in 'Show-SystemInfo', 'Set-LiveRow') {
+            $text = (Get-AuxAst $name).Extent.Text
+            $off = $text.IndexOf('SetRedraw($rtb.Handle, $false)')
+            $on  = $text.IndexOf('SetRedraw($rtb.Handle, $true)')
+            $off | Should -BeGreaterThan -1
+            $on | Should -BeGreaterThan $off
+            $text.Substring($off, $on - $off) | Should -Match 'finally'
+        }
+    }
+    It 'NativeMethods ima javnu SetRedraw (WM_SETREDRAW = 0x000B)' {
+        $cs = [System.IO.File]::ReadAllText((Join-Path $script:AuxSrcRoot 'native\Native.cs'))
+        $cs | Should -Match 'public static void SetRedraw\(IntPtr handle, bool enable\)'
+        $cs | Should -Match '0x000B'
+    }
+}

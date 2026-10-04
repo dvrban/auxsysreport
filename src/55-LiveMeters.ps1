@@ -14,12 +14,18 @@ function Set-LiveRow {
     $selLen   = $rtb.SelectionLength
     $firstLine = 0
     try { $firstLine = [Auxilium.NativeMethods]::GetFirstVisibleLine($rtb.Handle) } catch { }
-    $rtb.Select($row.Start, $row.Length)
-    $rtb.SelectedText = $bar
-    $rtb.Select($row.Start, $row.Length)
-    $rtb.SelectionColor = (Get-StatusColor $Status)
-    $rtb.Select($selStart, $selLen)
-    try { [Auxilium.NativeMethods]::ScrollToFirstVisibleLine($rtb.Handle, $firstLine) } catch { }
+    [Auxilium.NativeMethods]::SetRedraw($rtb.Handle, $false)
+    try {
+        $rtb.Select($row.Start, $row.Length)
+        $rtb.SelectedText = $bar
+        $rtb.Select($row.Start, $row.Length)
+        $rtb.SelectionColor = (Get-StatusColor $Status)
+        $rtb.Select($selStart, $selLen)
+        try { [Auxilium.NativeMethods]::ScrollToFirstVisibleLine($rtb.Handle, $firstLine) } catch { }
+    } finally {
+        [Auxilium.NativeMethods]::SetRedraw($rtb.Handle, $true)
+        $rtb.Invalidate()
+    }
     # Stavke u $script:SysInfo su iste kao prikazane: PDF izvještaj tako dobiva najnovije vrijednosti.
     $row.Item.Percent = $pct
     $row.Item.Value   = $Text

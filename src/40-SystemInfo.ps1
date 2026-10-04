@@ -364,48 +364,55 @@ function Show-SystemInfo {
     $c   = $script:Colors
     $firstLine = 0
     if ($KeepScroll) { try { $firstLine = [Auxilium.NativeMethods]::GetFirstVisibleLine($rtb.Handle) } catch { } }
-    $rtb.Clear()
-    $script:LiveRows = @{}
+    # Panel se briše i gradi redak po redak (oko 150 ms): bez isključenog iscrtavanja cijela kolona vidljivo trepne.
+    [Auxilium.NativeMethods]::SetRedraw($rtb.Handle, $false)
+    try {
+        $rtb.Clear()
+        $script:LiveRows = @{}
 
-    $first = $true
-    foreach ($it in $Items) {
-        if ($it.Kind -eq 'Section') {
-            if (-not $first) { Add-RichText $rtb '' $c.Text }
-            Add-RichText $rtb $it.Value.ToUpperInvariant() $c.Yellow -Bold $true -Indent 6
-            Add-RichText $rtb (([string][char]0x2500) * 40) $c.Line -Indent 6
-        } elseif ($it.Kind -eq 'KV') {
-            if ([regex]::IsMatch([string]$it.Value, '^(?:\\\\)?[^\s\\\-]{27,}')) {
-                # Vrijednost koja počinje predugačkim nedjeljivim nizom (UNC naziv printera, URL porta) ne stane uz oznaku: RichEdit bi zalomio
-                # sam tabulator i oznaka bi ostala sama u retku. Takva vrijednost ide u novi redak ispod oznake.
-                Add-RichText $rtb $it.Label $c.Muted -Indent 6
-                Add-RichText $rtb $it.Value (Get-StatusColor $it.Status) -Indent 112
+        $first = $true
+        foreach ($it in $Items) {
+            if ($it.Kind -eq 'Section') {
+                if (-not $first) { Add-RichText $rtb '' $c.Text }
+                Add-RichText $rtb $it.Value.ToUpperInvariant() $c.Yellow -Bold $true -Indent 6
+                Add-RichText $rtb (([string][char]0x2500) * 40) $c.Line -Indent 6
+            } elseif ($it.Kind -eq 'KV') {
+                if ([regex]::IsMatch([string]$it.Value, '^(?:\\\\)?[^\s\\\-]{27,}')) {
+                    # Vrijednost koja počinje predugačkim nedjeljivim nizom (UNC naziv printera, URL porta) ne stane uz oznaku: RichEdit bi zalomio
+                    # sam tabulator i oznaka bi ostala sama u retku. Takva vrijednost ide u novi redak ispod oznake.
+                    Add-RichText $rtb $it.Label $c.Muted -Indent 6
+                    Add-RichText $rtb $it.Value (Get-StatusColor $it.Status) -Indent 112
+                } else {
+                    Add-RichText $rtb ($it.Label + "`t") $c.Muted -Indent 6 -Hanging 106 -Tabs @(112) -NewLine $false
+                    Add-RichText $rtb $it.Value (Get-StatusColor $it.Status) -Indent 6 -Hanging 106 -Tabs @(112)
+                }
+            } elseif ($it.Kind -eq 'Bar') {
+                $filled = [int][Math]::Round([Math]::Min(100, [Math]::Max(0, $it.Percent)) / 100 * 16)
+                $bar = (([string][char]0x2588) * $filled) + (([string][char]0x2591) * (16 - $filled))
+                if ([string]::IsNullOrEmpty($it.Label)) {
+                    Add-RichText $rtb ("`t" + $bar + ' ' + ('{0:N0} %' -f $it.Percent)) (Get-StatusColor $it.Status) -Indent 6 -Hanging 106 -Tabs @(112)
+                } else {
+                    # Bar s oznakom (CPU / RAM) osvježava se uživo (Update-LiveMeters): postotak je fiksne širine pa se položaji redaka ne pomiču.
+                    Add-RichText $rtb ($it.Label + "`t") $c.Muted -Indent 6 -Hanging 106 -Tabs @(112) -NewLine $false
+                    $liveStart = $rtb.TextLength
+                    $liveText  = $bar + ' ' + ('{0,3:N0} %' -f $it.Percent)
+                    Add-RichText $rtb $liveText (Get-StatusColor $it.Status) -Indent 6 -Hanging 106 -Tabs @(112)
+                    $script:LiveRows[[string]$it.Label] = @{ Start = $liveStart; Length = $liveText.Length; Item = $it }
+                }
             } else {
-                Add-RichText $rtb ($it.Label + "`t") $c.Muted -Indent 6 -Hanging 106 -Tabs @(112) -NewLine $false
-                Add-RichText $rtb $it.Value (Get-StatusColor $it.Status) -Indent 6 -Hanging 106 -Tabs @(112)
+                Add-RichText $rtb $it.Value (Get-StatusColor $it.Status) -Indent 6
             }
-        } elseif ($it.Kind -eq 'Bar') {
-            $filled = [int][Math]::Round([Math]::Min(100, [Math]::Max(0, $it.Percent)) / 100 * 16)
-            $bar = (([string][char]0x2588) * $filled) + (([string][char]0x2591) * (16 - $filled))
-            if ([string]::IsNullOrEmpty($it.Label)) {
-                Add-RichText $rtb ("`t" + $bar + ' ' + ('{0:N0} %' -f $it.Percent)) (Get-StatusColor $it.Status) -Indent 6 -Hanging 106 -Tabs @(112)
-            } else {
-                # Bar s oznakom (CPU / RAM) osvježava se uživo (Update-LiveMeters): postotak je fiksne širine pa se položaji redaka ne pomiču.
-                Add-RichText $rtb ($it.Label + "`t") $c.Muted -Indent 6 -Hanging 106 -Tabs @(112) -NewLine $false
-                $liveStart = $rtb.TextLength
-                $liveText  = $bar + ' ' + ('{0,3:N0} %' -f $it.Percent)
-                Add-RichText $rtb $liveText (Get-StatusColor $it.Status) -Indent 6 -Hanging 106 -Tabs @(112)
-                $script:LiveRows[[string]$it.Label] = @{ Start = $liveStart; Length = $liveText.Length; Item = $it }
-            }
-        } else {
-            Add-RichText $rtb $it.Value (Get-StatusColor $it.Status) -Indent 6
+            $first = $false
         }
-        $first = $false
-    }
 
-    $rtb.SelectionStart  = 0
-    $rtb.SelectionLength = 0
-    $rtb.ScrollToCaret()
-    if ($KeepScroll -and $firstLine -gt 0) { try { [Auxilium.NativeMethods]::ScrollToFirstVisibleLine($rtb.Handle, $firstLine) } catch { } }
+        $rtb.SelectionStart  = 0
+        $rtb.SelectionLength = 0
+        $rtb.ScrollToCaret()
+        if ($KeepScroll -and $firstLine -gt 0) { try { [Auxilium.NativeMethods]::ScrollToFirstVisibleLine($rtb.Handle, $firstLine) } catch { } }
+    } finally {
+        [Auxilium.NativeMethods]::SetRedraw($rtb.Handle, $true)
+        $rtb.Invalidate()
+    }
     # Health Score se računa iz istih stavki koje se prikazuju.
     try { Update-HealthTile $Items } catch { }
 }

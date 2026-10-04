@@ -64,3 +64,8 @@ Od ove točke `src\` se razlikuje od v4. `tests\Test-SrcSplit.ps1` (bajt-identi�
 - **T1.11 rezultat zadatka umjesto nuspojave (N4):** provjera koda pokazuje da razinu `Error` ispisuje samo 5 mjesta (`50-Logs.ps1` ×2, `74-TasksNetwork.ps1` ×3) i da svako stvarno prijavljuje neuspjeh; scenarij „upozorenje razine Error uspješnog zadatka“ iz izvještaja u v0.04 ne postoji. Preostali rizik („greška bez ispisa ostaje zelena“) rješava se trijažom praznih `catch`, ne novim protokolom. Refaktoriranje 9 zadataka zato nije opravdano bez primjera.
 - **T1.5 kriterij „0 praznih `catch` bez komentara“** (vidi gore) i **T1.12 git hash u zaglavlju PDF-a** (zamijenjeno otiskom skripte).
 - **Sandbox UAC test** (cilj faze) i svi ručni testovi na Windowsu: nisu izvršeni.
+
+### Nalaz s Windowsa (prvo pokretanje na pravom računalu)
+- Potvrđeno u radu: `build.ps1` na Windows PowerShellu 5.1, pokretanje i UAC, dnevnik na stiku (nema `ERROR` zapisa), prekid zadatka bez zamrzavanja, ocjena se računa, PDF nastaje, nema zaostalog procesa. (Ispravljeno usput: `$PSScriptRoot` je u zadanoj vrijednosti parametra bio prazan.)
+- **Treptanje kolone statusa:** `Show-SystemInfo` je brisao i gradio panel redak po redak uz vidljivo iscrtavanje. Sada se iscrtavanje isključuje tijekom gradnje (`NativeMethods.SetRedraw`, `WM_SETREDRAW`) i uvijek uključuje u `finally`; isto za živi CPU/RAM bar (`Set-LiveRow`). Ovo je korak 1 iz T2.4; skraćivanje samog vremena gradnje (jedan RTF niz) nije napravljeno. Treba potvrditi na Windowsu.
+- Zasivljeni gumbi dok čišćenje čeka skeniranje su očekivani (zadatak je u tijeku; `Set-BusyState`).

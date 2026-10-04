@@ -421,6 +421,12 @@ namespace Auxilium
             catch { return null; }
         }
 
+        // Privremeno isključuje/uključuje iscrtavanje kontrole (WM_SETREDRAW): gradnja panela statusa ne treperi.
+        public static void SetRedraw(IntPtr handle, bool enable)
+        {
+            try { SendMessage(handle, 0x000B, enable ? (IntPtr)1 : IntPtr.Zero, IntPtr.Zero); } catch { }
+        }
+
         public static void TryDestroyIcon(IntPtr handle)
         {
             try { DestroyIcon(handle); } catch { }
