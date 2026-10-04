@@ -94,7 +94,7 @@ try {
             foreach ($g in $groups) {
                 $first = $g.Group[0]
                 $msg = ''
-                try { $msg = [string]$first.Message } catch { }
+                try { $msg = [string]$first.Message } catch { <# namjerno: skripta skeniranja (zaseban proces, bez dnevnika): nedostupan podatak se preskače #> }
                 if ([string]::IsNullOrWhiteSpace($msg)) { $msg = '(bez opisa)' }
                 $line = '{0} (ID {1}): {2}' -f $first.ProviderName, $first.Id, (Get-Clean $msg 120)
                 $st = 'Warn'
@@ -116,7 +116,7 @@ try {
     $crashApps = @{}
     foreach ($ev in $crashEvents) {
         $m = ''
-        try { $m = [string]$ev.Message } catch { }
+        try { $m = [string]$ev.Message } catch { <# namjerno: skripta skeniranja (zaseban proces, bez dnevnika): nedostupan podatak se preskače #> }
         if     ($m -match '(?i)\A\s*[^:\r\n]+:\s*([^,\r\n]+?\.(?:exe|dll))\s*,') { $name = $Matches[1] }
         elseif ($m -match '(?i)([A-Za-z0-9_\-\.]+\.exe)')                          { $name = $Matches[1] }
         else                                                                        { $name = '?' }
@@ -219,7 +219,7 @@ $isLaptop = $false
 try {
     $chassis = @((Get-CimInstance -ClassName Win32_SystemEnclosure -OperationTimeoutSec 20 -ErrorAction Stop).ChassisTypes)
     $isLaptop = (@($chassis | Where-Object { @(8, 9, 10, 11, 14, 30, 31, 32) -contains [int]$_ }).Count -gt 0)
-} catch { }
+} catch { <# namjerno: skripta skeniranja (zaseban proces, bez dnevnika): nedostupan podatak se preskače #> }
 try {
     $sysDrive = $env:SystemDrive
     if ([string]::IsNullOrWhiteSpace($sysDrive)) { $sysDrive = 'C:' }
@@ -248,7 +248,7 @@ try {
         Add-Item 'KV' 'RDP' 'isključen' 'Good'
     } else {
         $nla = 0
-        try { $nla = [int](Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -ErrorAction Stop).UserAuthentication } catch { }
+        try { $nla = [int](Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -ErrorAction Stop).UserAuthentication } catch { <# namjerno: skripta skeniranja (zaseban proces, bez dnevnika): nedostupan podatak se preskače #> }
         if ($nla -eq 1) { Add-Item 'KV' 'RDP' 'uključen (uz NLA: prijava se traži prije veze)' 'Warn' } else { Add-Item 'KV' 'RDP' 'uključen BEZ NLA zaštite' 'Bad' }
     }
 } catch {
@@ -270,7 +270,7 @@ try {
 } catch { $sidText = '' }
 $profilePath = $env:USERPROFILE
 if ($sidText) {
-    try { $pp = (Get-ItemProperty ('HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList\' + $sidText)).ProfileImagePath; if ($pp) { $profilePath = $pp } } catch { }
+    try { $pp = (Get-ItemProperty ('HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList\' + $sidText)).ProfileImagePath; if ($pp) { $profilePath = $pp } } catch { <# namjerno: skripta skeniranja (zaseban proces, bez dnevnika): nedostupan podatak se preskače #> }
 }
 $progs = @{}
 $hiddenCount = 0
@@ -284,7 +284,7 @@ try {
             $progs[($n.ToLower() + '|' + [string]$e.DisplayVersion)] = [pscustomobject]@{ Name = $n.Trim(); Version = ([string]$e.DisplayVersion).Trim() }
         }
     }
-} catch { }
+} catch { <# namjerno: skripta skeniranja (zaseban proces, bez dnevnika): nedostupan podatak se preskače #> }
 
 $lsMap = @{ 0 = 'nelicencirano'; 1 = 'licencirano'; 2 = 'početna odgoda'; 3 = 'odgoda'; 4 = 'odgoda (nelegalna kopija)'; 5 = 'traži se aktivacija'; 6 = 'produljena odgoda' }
 try {
@@ -362,14 +362,14 @@ try {
             if ([int]::TryParse([string]$lp.Value, [ref]$iv) -and $iv -gt 0) { $vnext = $true }
         }
     }
-} catch { }
+} catch { <# namjerno: skripta skeniranja (zaseban proces, bez dnevnika): nedostupan podatak se preskače #> }
 $tokenFresh = $false
 try {
     $tokDir = $profilePath + '\AppData\Local\Microsoft\Office\Licenses\5'
     if (Test-Path -LiteralPath $tokDir) {
         $tokenFresh = (@(Get-ChildItem -LiteralPath $tokDir -File -Recurse -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTime -gt (Get-Date).AddDays(-35) }).Count -gt 0)
     }
-} catch { }
+} catch { <# namjerno: skripta skeniranja (zaseban proces, bez dnevnika): nedostupan podatak se preskače #> }
 try {
     foreach ($l in @(Get-CimInstance SoftwareLicensingProduct -Filter "ApplicationID='0ff1ce15-a989-479d-af46-f275c6370663' AND PartialProductKey IS NOT NULL" -OperationTimeoutSec 30 -ErrorAction Stop)) {
         $ls = [int]$l.LicenseStatus
@@ -423,11 +423,11 @@ try {
     } elseif ($mapi) {
         $defMail = $mapi + ' (MAPI zadani; mailto nije postavljen ili zapis nije valjan)'
     }
-} catch { }
+} catch { <# namjerno: skripta skeniranja (zaseban proces, bez dnevnika): nedostupan podatak se preskače #> }
 if ($defMail) { Add-Item 'KV' 'Zadani klijent' (Get-Clean $defMail 100) } else { Add-Item 'KV' 'Zadani klijent' 'nije postavljen' }
 if ($officeRoot -and (Test-Path -LiteralPath ($officeRoot + '\OUTLOOK.EXE'))) {
     $ov = ''
-    try { $ov = (Get-Item -LiteralPath ($officeRoot + '\OUTLOOK.EXE')).VersionInfo.FileVersion } catch { }
+    try { $ov = (Get-Item -LiteralPath ($officeRoot + '\OUTLOOK.EXE')).VersionInfo.FileVersion } catch { <# namjerno: skripta skeniranja (zaseban proces, bez dnevnika): nedostupan podatak se preskače #> }
     Add-Item 'KV' 'Outlook' ('klasični, verzija {0}' -f $ov)
 }
 Send-Items
@@ -468,7 +468,7 @@ try {
         $dirList.Add($pers + '\Outlook Files')
         $dirList.Add($pers)
     }
-} catch { }
+} catch { <# namjerno: skripta skeniranja (zaseban proces, bez dnevnika): nedostupan podatak se preskače #> }
 $mailFiles = @()
 $seenDirs = @{}
 foreach ($dir in $dirList) {
@@ -478,7 +478,7 @@ foreach ($dir in $dirList) {
     try {
         if (-not (Test-Path -LiteralPath $dir)) { continue }
         $mailFiles += @(Get-ChildItem -LiteralPath $dir -File -Force -ErrorAction SilentlyContinue | Where-Object { $_.Extension -match '^\.(ost|pst|nst)$' })
-    } catch { }
+    } catch { <# namjerno: skripta skeniranja (zaseban proces, bez dnevnika): nedostupan podatak se preskače #> }
 }
 if ($mailFiles.Count -gt 0) {
     Add-Item 'KV' 'Outlook datot.' ('{0} (OST/PST/NST)' -f $mailFiles.Count)
@@ -517,7 +517,7 @@ try {
     try {
         $sysInfo = New-Object -ComObject Microsoft.Update.SystemInfo
         if ($sysInfo.RebootRequired) { Add-Item 'KV' 'Restart' 'potrebno ponovno pokretanje računala' 'Warn' }
-    } catch { }
+    } catch { <# namjerno: skripta skeniranja (zaseban proces, bez dnevnika): nedostupan podatak se preskače #> }
 
     $result = $searcher.Search('IsInstalled=0 and IsHidden=0')
     $count  = [int]$result.Updates.Count
@@ -571,7 +571,7 @@ try {
                 if ($h.ResultCode -eq 2) { $okCount++ }
                 elseif ($h.ResultCode -ge 3) {
                     $uid = ''
-                    try { $uid = [string]$h.UpdateIdentity.UpdateID } catch { }
+                    try { $uid = [string]$h.UpdateIdentity.UpdateID } catch { <# namjerno: skripta skeniranja (zaseban proces, bez dnevnika): nedostupan podatak se preskače #> }
                     $failed.Add([pscustomobject]@{ When = $when.ToLocalTime(); Title = [string]$h.Title; HResult = [int]$h.HResult; Id = $uid })
                 }
             }
@@ -590,7 +590,7 @@ try {
         } else {
             Add-Item 'KV' 'Zadnjih 7 d' 'nema zapisa o instalacijama' 'Normal'
         }
-    } catch { }
+    } catch { <# namjerno: skripta skeniranja (zaseban proces, bez dnevnika): nedostupan podatak se preskače #> }
 } catch {
     Add-Item 'Text' '' ('Windows Update nije dostupan: ' + (Get-Clean $_.Exception.Message 120)) 'Warn'
 }

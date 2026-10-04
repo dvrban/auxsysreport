@@ -89,7 +89,7 @@ function New-InventoryResult {
                         if ($null -ne $t) { $apps.Add($t) }
                         if ($apps.Count -ge 1500) { break }
                     }
-                } catch { }
+                } catch { <# namjerno: ubačena funkcija (runspace): nema dnevnika; polje se izostavlja #> }
                 $dev[$key] = $apps.ToArray()
             } elseif ($key -eq 'ramType') {
                 # Samo vrijednosti iz popisa; sve ostalo (prazno, '0', '2', slobodan tekst) -> ključ se izostavlja.
@@ -125,7 +125,7 @@ function New-InventoryResult {
     } catch {
         # Posljednja linija obrane: minimalna, ali ispravna struktura.
         $stamp = $null
-        try { $stamp = (Get-Date).ToString('yyyy-MM-ddTHH:mm:sszzz', [System.Globalization.CultureInfo]::InvariantCulture) } catch { }
+        try { $stamp = (Get-Date).ToString('yyyy-MM-ddTHH:mm:sszzz', [System.Globalization.CultureInfo]::InvariantCulture) } catch { <# namjerno: ubačena funkcija (runspace): nema dnevnika; polje se izostavlja #> }
         $dev = [ordered]@{}
         foreach ($key in @('category', 'hostname', 'manufacturer', 'model', 'serialNumber', 'cpu', 'ram', 'storageType',
                            'storageCapacity', 'operatingSystem', 'officeVersion', 'antivirus', 'macAddress', 'ipAddress', 'warrantyUntil')) {
@@ -183,7 +183,7 @@ function Get-InventoryData {
 
     function Set-InvField {
         param([string]$Name, $Value)
-        try { $dev[$Name] = $Value } catch { }
+        try { $dev[$Name] = $Value } catch { <# namjerno: ubačena funkcija (runspace): nema dnevnika; polje se izostavlja #> }
     }
 
     # Jednoredni, trimani tekst; -Placeholder briše tvorničke zamjenske vrijednosti (BIOS/DMI smeće).
@@ -267,12 +267,12 @@ function Get-InventoryData {
                                 })
                             }
                         }
-                    } catch { } finally {
+                    } catch { <# namjerno: ubačena funkcija (runspace): nema dnevnika; polje se izostavlja #> } finally {
                         if ($null -ne $sk) { $sk.Close() }
                     }
                 }
             }
-        } catch { } finally {
+        } catch { <# namjerno: ubačena funkcija (runspace): nema dnevnika; polje se izostavlja #> } finally {
             if ($null -ne $k) { $k.Close() }
         }
         return $list.ToArray()
@@ -343,9 +343,9 @@ function Get-InventoryData {
     # Disk sistemskog pogona: najprije MSFT_PhysicalDisk (isti izvor kao Get-PhysicalDisk), rezerva Win32_DiskDrive.
     function Get-InvSystemDisk {
         $sysLetter = $null
-        try { $sd = [string]$env:SystemDrive; if ($sd.Length -ge 1) { $sysLetter = $sd.Substring(0, 1).ToUpperInvariant() } } catch { }
+        try { $sd = [string]$env:SystemDrive; if ($sd.Length -ge 1) { $sysLetter = $sd.Substring(0, 1).ToUpperInvariant() } } catch { <# namjerno: ubačena funkcija (runspace): nema dnevnika; polje se izostavlja #> }
         if ($null -eq $sysLetter) {
-            try { $sysLetter = ([System.Environment]::GetFolderPath('Windows')).Substring(0, 1).ToUpperInvariant() } catch { }
+            try { $sysLetter = ([System.Environment]::GetFolderPath('Windows')).Substring(0, 1).ToUpperInvariant() } catch { <# namjerno: ubačena funkcija (runspace): nema dnevnika; polje se izostavlja #> }
         }
 
         try {
@@ -385,7 +385,7 @@ function Get-InventoryData {
             elseif ($media -eq 3) { $type = 'hdd' }
             else { $type = 'ostalo' }
             return [pscustomobject]@{ Type = $type; Capacity = (Format-InvDiskCapacity ([double]$target.Size)) }
-        } catch { }
+        } catch { <# namjerno: ubačena funkcija (runspace): nema dnevnika; polje se izostavlja #> }
 
         # Rezerva bez Storage prostora imena: Win32_DiskDrive, tip samo po nazivu modela (NVMe / SSD), inače 'ostalo'.
         $drive = $null
@@ -452,7 +452,7 @@ function Get-InventoryData {
             })
             if ($routes.Count -gt 0) {
                 $ipifs = @()
-                try { $ipifs = @(Invoke-InvCim 'MSFT_NetIPInterface' $ns | Where-Object { $_.AddressFamily -eq 2 }) } catch { }
+                try { $ipifs = @(Invoke-InvCim 'MSFT_NetIPInterface' $ns | Where-Object { $_.AddressFamily -eq 2 }) } catch { <# namjerno: ubačena funkcija (runspace): nema dnevnika; polje se izostavlja #> }
                 $cands = New-Object 'System.Collections.Generic.List[object]'
                 foreach ($r in $routes) {
                     $idx = [int]$r.InterfaceIndex
@@ -491,7 +491,7 @@ function Get-InventoryData {
                     } catch { $mac = $null }
                 }
             }
-        } catch { }
+        } catch { <# namjerno: ubačena funkcija (runspace): nema dnevnika; polje se izostavlja #> }
 
         if ($null -ne $mac -and $null -ne $ip) { return [pscustomobject]@{ Mac = $mac; Ip = $ip } }
 
@@ -502,14 +502,14 @@ function Get-InventoryData {
                 if ($null -eq $mac) { $mac = $fb.Mac }
                 if ($null -eq $ip) { $ip = $fb.Ip }
             }
-        } catch { }
+        } catch { <# namjerno: ubačena funkcija (runspace): nema dnevnika; polje se izostavlja #> }
 
         # Odabrani adapter nije dao ništa: opća rezerva (adapter s IPv4 zadanim prolazom i najnižom metrikom).
         if ($null -eq $mac -and $null -eq $ip -and $null -ne $chosen) {
             try {
                 $fb = Get-InvNetworkFallback $null
                 if ($null -ne $fb) { $mac = $fb.Mac; $ip = $fb.Ip }
-            } catch { }
+            } catch { <# namjerno: ubačena funkcija (runspace): nema dnevnika; polje se izostavlja #> }
         }
 
         if ($null -ne $mac -or $null -ne $ip) { return [pscustomobject]@{ Mac = $mac; Ip = $ip } }
@@ -614,7 +614,7 @@ function Get-InventoryData {
             $callArgs = [object[]]@([uint64]0)
             $ok = $nt.GetMethod('GetPhysicallyInstalledSystemMemory').Invoke($null, $callArgs)
             if ($ok -eq $true -and [uint64]$callArgs[0] -gt 0) { return ([decimal][uint64]$callArgs[0] * 1024) }
-        } catch { }
+        } catch { <# namjerno: ubačena funkcija (runspace): nema dnevnika; polje se izostavlja #> }
         return $null
     }
 
@@ -626,7 +626,7 @@ function Get-InventoryData {
         # warrantyUntil se ne može prikupiti; hostname = $env:COMPUTERNAME
         Set-InvField 'warrantyUntil' $null
         $hostname = ConvertTo-CleanText $env:COMPUTERNAME
-        if ($null -eq $hostname) { try { $hostname = ConvertTo-CleanText ([System.Environment]::MachineName) } catch { } }
+        if ($null -eq $hostname) { try { $hostname = ConvertTo-CleanText ([System.Environment]::MachineName) } catch { <# namjerno: ubačena funkcija (runspace): nema dnevnika; polje se izostavlja #> } }
         Set-InvField 'hostname' $hostname
 
         # --- Proizvođač i model (Win32_ComputerSystem; objekt služi i kao rezerva za RAM / kategoriju) ---
@@ -634,8 +634,8 @@ function Get-InventoryData {
         try { $cs = @(Invoke-InvCim 'Win32_ComputerSystem' -Property @('Manufacturer', 'Model', 'TotalPhysicalMemory', 'PCSystemType'))[0] } catch { $cs = $null }
         $manufacturer = $null
         $model = $null
-        try { if ($null -ne $cs) { $manufacturer = ConvertTo-CleanText $cs.Manufacturer -Placeholder } } catch { }
-        try { if ($null -ne $cs) { $model = ConvertTo-CleanText $cs.Model -Placeholder } } catch { }
+        try { if ($null -ne $cs) { $manufacturer = ConvertTo-CleanText $cs.Manufacturer -Placeholder } } catch { <# namjerno: ubačena funkcija (runspace): nema dnevnika; polje se izostavlja #> }
+        try { if ($null -ne $cs) { $model = ConvertTo-CleanText $cs.Model -Placeholder } } catch { <# namjerno: ubačena funkcija (runspace): nema dnevnika; polje se izostavlja #> }
         Set-InvField 'manufacturer' $manufacturer
         Set-InvField 'model' $model
 
@@ -695,7 +695,7 @@ function Get-InventoryData {
                     foreach ($enc in @(Invoke-InvCim 'Win32_SystemEnclosure' -Property @('ChassisTypes'))) {
                         foreach ($t in @($enc.ChassisTypes)) { if ($null -ne $t) { $chassis.Add([int]$t) } }
                     }
-                } catch { }
+                } catch { <# namjerno: ubačena funkcija (runspace): nema dnevnika; polje se izostavlja #> }
                 $laptopTypes = @(8, 9, 10, 11, 14, 30, 31, 32)
                 $desktopTypes = @(3, 4, 5, 6, 7, 13, 15, 16, 23, 24, 34, 35, 36)
                 $isLaptop = $false
@@ -742,7 +742,7 @@ function Get-InventoryData {
         try {
             $sum = [decimal]0
             foreach ($d in $dimms) {
-                try { if ($null -ne $d.Capacity) { $sum += [decimal]$d.Capacity } } catch { }   # neispravan element ne ruši cijeli zbroj (isto uz Set-StrictMode)
+                try { if ($null -ne $d.Capacity) { $sum += [decimal]$d.Capacity } } catch { <# namjerno: ubačena funkcija (runspace): nema dnevnika; polje se izostavlja #> }   # neispravan element ne ruši cijeli zbroj (isto uz Set-StrictMode)
             }
             if ($sum -le 0) {
                 # Nema DIMM podataka: najprije stvarno ugrađeni RAM (API), zatim TotalPhysicalMemory (točan na VM-u, na fizičkom
@@ -821,7 +821,7 @@ function Get-InventoryData {
         try {
             foreach ($e in @(Get-InvUninstallEntries $hklm $uninstallSub)) { $hklmEntries.Add($e) }
             foreach ($e in @(Get-InvUninstallEntries $hklm $uninstallSub32)) { $hklmEntries.Add($e) }
-        } catch { }
+        } catch { <# namjerno: ubačena funkcija (runspace): nema dnevnika; polje se izostavlja #> }
 
         $office = $null
         try {
@@ -878,12 +878,10 @@ function Get-InventoryData {
             foreach ($e in $hklmEntries) { $all.Add($e) }
             foreach ($e in @(Get-InvUninstallEntries $userBase $userPath)) { $all.Add($e) }
             $apps = [string[]]@(Get-InvAppNames $all.ToArray())
-        } catch { }
+        } catch { <# namjerno: ubačena funkcija (runspace): nema dnevnika; polje se izostavlja #> }
         Set-InvField 'installedApps' $apps
-    } catch {
-        # nikad ne propuštamo iznimku; što je prikupljeno već je u $dev
-    } finally {
-        foreach ($rk in @($hklm, $hku, $hkcu)) { try { if ($null -ne $rk) { $rk.Close() } } catch { } }
+    } catch { <# namjerno: ubačena funkcija (runspace): nema dnevnika; polje se izostavlja #> } finally {
+        foreach ($rk in @($hklm, $hku, $hkcu)) { try { if ($null -ne $rk) { $rk.Close() } } catch { <# namjerno: ubačena funkcija (runspace): nema dnevnika; polje se izostavlja #> } }
     }
 
     try {
@@ -923,7 +921,7 @@ function Get-InventoryDataAsync {
                 # Zapeti WMI/CIM upit drži runspace živim: napušta se (proces se na kraju završava silom, vidi MAIN).
                 $abandoned = $true
                 $script:AbandonedRunspace = $true
-                try { [void]$ps.BeginStop($null, $null) } catch { }
+                try { [void]$ps.BeginStop($null, $null) } catch { <# namjerno: zaustavljanje napuštenog runspacea: zapeti WMI poziv se ionako ne može prekinuti #> }
                 if ($stop) { return $null }
                 $device = @{}
                 foreach ($key in @($sink.Keys)) { $device[$key] = $sink[$key] }
@@ -943,8 +941,8 @@ function Get-InventoryDataAsync {
         return [pscustomobject]@{ Data = $data; Partial = $false }
     } finally {
         if (-not $abandoned) {
-            try { if ($null -ne $ps) { $ps.Dispose() } } catch { }
-            try { if ($null -ne $rs) { $rs.Dispose() } } catch { }
+            try { if ($null -ne $ps) { $ps.Dispose() } } catch { <# namjerno: oslobađanje resursa: greška pri zatvaranju nije bitna #> }
+            try { if ($null -ne $rs) { $rs.Dispose() } } catch { <# namjerno: oslobađanje resursa: greška pri zatvaranju nije bitna #> }
         }
     }
 }

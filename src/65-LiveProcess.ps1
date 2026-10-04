@@ -4,7 +4,7 @@ function ConvertFrom-ConsoleBytes {
     try {
         $strict = New-Object System.Text.UTF8Encoding($false, $true)
         return $strict.GetString($Bytes)
-    } catch { }
+    } catch { <# namjerno: UTF-8 nije valjan: slijedi zamjenska kodna stranica #> }
     try {
         $oem = [System.Text.Encoding]::GetEncoding([int][Auxilium.NativeMethods]::GetOEMCP())
         return $oem.GetString($Bytes)
@@ -195,7 +195,7 @@ function Invoke-LiveProcess {
             }
             if (-not $active) { break }
             if (Test-StopRequested) {
-                try { $proc.Kill() } catch { }
+                try { $proc.Kill() } catch { <# namjerno: proces je možda već završio #> }
                 Write-Terminal 'Proces je prekinut na zahtjev korisnika.' 'Warn'
                 break
             }
@@ -205,7 +205,7 @@ function Invoke-LiveProcess {
 
         while (-not $proc.WaitForExit(100)) {
             if (Test-StopRequested) {
-                try { $proc.Kill() } catch { }
+                try { $proc.Kill() } catch { <# namjerno: proces je možda već završio #> }
                 # do 2 s čekanja na kraj procesa, ali uz pumpanje poruka (sučelje se ne smije zamrznuti)
                 $killWait = [System.Diagnostics.Stopwatch]::StartNew()
                 while (-not $proc.WaitForExit(100) -and $killWait.ElapsedMilliseconds -lt 2000) { Update-Ui }
@@ -216,9 +216,9 @@ function Invoke-LiveProcess {
         if ($proc.HasExited) { $exitCode = $proc.ExitCode }
     } finally {
         $script:CurrentProcess = $null
-        try { Send-ProcessBatch } catch { }
-        try { if (-not $proc.HasExited) { $proc.Kill() } } catch { }
-        try { $proc.Dispose() } catch { }
+        try { Send-ProcessBatch } catch { Write-AppLog 'Debug' 'Invoke-LiveProcess: Send-ProcessBatch' $_ }
+        try { if (-not $proc.HasExited) { $proc.Kill() } } catch { <# namjerno: proces je možda već završio #> }
+        try { $proc.Dispose() } catch { <# namjerno: oslobađanje resursa: greška pri zatvaranju nije bitna #> }
     }
     return $exitCode
 }

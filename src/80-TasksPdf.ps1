@@ -113,7 +113,7 @@ function Initialize-PdfState {
         foreach ($family in (New-Object System.Drawing.Text.InstalledFontCollection).Families) {
             if ($family.Name -eq 'Bahnschrift') { $logoFamily = 'Bahnschrift'; break }
         }
-    } catch { }
+    } catch { <# namjerno: probiranje fonta: nedostupan font znači zamjenski font #> }
     $p.Fonts = @{
         Body      = [System.Drawing.Font]::new('Segoe UI', 9)
         BodyBold  = [System.Drawing.Font]::new('Segoe UI', 9, $bold)
@@ -377,11 +377,11 @@ function Remove-PdfState {
     if ($null -eq $p) { return }
     foreach ($group in @('Fonts', 'Brushes', 'Pens')) {
         if ($p.ContainsKey($group)) {
-            foreach ($key in @($p[$group].Keys)) { try { $p[$group][$key].Dispose() } catch { } }
+            foreach ($key in @($p[$group].Keys)) { try { $p[$group][$key].Dispose() } catch { <# namjerno: oslobađanje resursa: greška pri zatvaranju nije bitna #> } }
         }
     }
     foreach ($key in @('Sf', 'SfRight', 'Gm', 'Bmp')) {
-        try { if ($p.ContainsKey($key) -and $null -ne $p[$key]) { $p[$key].Dispose() } } catch { }
+        try { if ($p.ContainsKey($key) -and $null -ne $p[$key]) { $p[$key].Dispose() } } catch { <# namjerno: oslobađanje resursa: greška pri zatvaranju nije bitna #> }
     }
 }
 

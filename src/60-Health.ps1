@@ -348,8 +348,7 @@ function Invoke-HealthPaint {
             }
             if (@($health.Deductions).Count -eq 0) { & $drawAt 'Nema odbitaka: sve je u redu.' $f.Hint $c.Muted 14 $y $inner $sf }
         }
-    } catch {
-    } finally {
+    } catch { Write-AppLog 'Debug' 'Invoke-HealthPaint' $_ } finally {
         if ($null -ne $sf) { $sf.Dispose() }
         if ($null -ne $sfRight) { $sfRight.Dispose() }
     }

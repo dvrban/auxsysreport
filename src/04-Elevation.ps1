@@ -24,7 +24,7 @@ if (-not $script:IsAdmin -or -not $script:IsSta) {
                     $scriptPath = $logical.ProviderName.TrimEnd('\') + '\' + $scriptPath.Substring($driveRoot.Length)
                 }
             }
-        } catch { }
+        } catch { <# namjerno: mapirani disk se ne može pretvoriti u UNC: ostaje izvorna putanja (prije definicije Write-AppLog) #> }
 
         $relaunch = @{
             FilePath     = $hostExe

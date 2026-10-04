@@ -39,7 +39,7 @@ Describe 'Write-AppLog' {
     BeforeEach {
         $script:root = Join-Path ([System.IO.Path]::GetTempPath()) ('aux-log-' + [guid]::NewGuid().ToString('N'))
         [void][System.IO.Directory]::CreateDirectory($script:root)
-        $script:AppRoot = $script:root; $script:LogPath = ''; $script:LogFailed = $false
+        $script:AppRoot = $script:root; $script:LogPath = ''; $script:LogFailed = $false; $script:LogLastSignature = ''; $script:LogRepeats = 0
     }
     AfterEach { Remove-Item -LiteralPath $script:root -Recurse -Force -ErrorAction SilentlyContinue }
 
@@ -68,5 +68,17 @@ Describe 'Write-AppLog' {
         $script:AppRoot = ''
         { Write-AppLog 'Info' 'x' } | Should -Not -Throw
         $script:LogPath | Should -Be ''
+    }
+    It 'jednaki uzastopni zapisi se spajaju u "ponovljeno N puta"' {
+        1..5 | ForEach-Object { Write-AppLog 'Warn' 'ista greška' }
+        Write-AppLog 'Info' 'nešto drugo'
+        $lines = @(Get-Content -LiteralPath (Get-ChildItem (Join-Path $script:root 'Dnevnik') -Filter 'Auxilium_*.log')[0].FullName)
+        $lines.Count | Should -Be 3
+        $lines[1] | Should -Match 'ponovljen još 4 puta'
+        $lines[2] | Should -Match 'nešto drugo'
+    }
+    It 'različiti zapisi se ne spajaju' {
+        Write-AppLog 'Warn' 'a'; Write-AppLog 'Warn' 'b'; Write-AppLog 'Warn' 'a'
+        @(Get-Content -LiteralPath (Get-ChildItem (Join-Path $script:root 'Dnevnik') -Filter 'Auxilium_*.log')[0].FullName).Count | Should -Be 3
     }
 }

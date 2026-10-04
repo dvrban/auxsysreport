@@ -41,7 +41,7 @@ function Write-Terminal {
             $rtb.SelectionStart  = $rtb.TextLength
             $rtb.ScrollToCaret()
         }
-    } catch { }
+    } catch { Write-AppLog 'Debug' 'Write-Terminal: ispis u terminal' $_ }
     Update-Ui
 }
 
@@ -114,15 +114,15 @@ function Set-BusyState {
         }
         if (-not $Busy -and $script:FocusCompanyBox) {
             $script:FocusCompanyBox = $false
-            try { [void]$script:UI.CompanyBox.Focus() } catch { }
+            try { [void]$script:UI.CompanyBox.Focus() } catch { <# namjerno: kozmetika sučelja (tema, pomak, fokus): bez toga alat radi #> }
         }
-    } catch { }
+    } catch { Write-AppLog 'Debug' 'Set-BusyState' $_ }
 }
 
 function Stop-CurrentProcess {
     $proc = $script:CurrentProcess
     if ($null -ne $proc) {
-        try { if (-not $proc.HasExited) { $proc.Kill() } } catch { }
+        try { if (-not $proc.HasExited) { $proc.Kill() } } catch { <# namjerno: proces je možda već završio #> }
     }
 }
 

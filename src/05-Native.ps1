@@ -22,10 +22,10 @@ if (-not ('Auxilium.NativeMethods' -as [type])) {
                     $env:TEMP = $candidate
                     $env:TMP  = $candidate
                     break
-                } catch { }
+                } catch { <# namjerno: probni odabir mape za prevođenje C#: slijedi sljedeći kandidat #> }
             }
         }
-    } catch { }
+    } catch { <# namjerno: probni odabir mape za prevođenje C#: slijedi sljedeći kandidat #> }
     try {
     Add-Type -ErrorAction Stop -ReferencedAssemblies 'System.Windows.Forms', 'System.Drawing' -TypeDefinition @'
 #<<NATIVE_CS>>#
@@ -38,7 +38,7 @@ if (-not ('Auxilium.NativeMethods' -as [type])) {
                 'Auxilium Informatika',
                 [System.Windows.Forms.MessageBoxButtons]::OK,
                 [System.Windows.Forms.MessageBoxIcon]::Error)
-        } catch { }
+        } catch { <# namjerno: poruka o fatalnoj grešci ne smije sama baciti iznimku #> }
         exit 1
     } finally {
         $env:TEMP = $nativeTemp

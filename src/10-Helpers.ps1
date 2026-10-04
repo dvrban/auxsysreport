@@ -11,7 +11,7 @@ function Test-FontInstalled {
         foreach ($family in $installed.Families) {
             if ($family.Name -eq $Name) { return $true }
         }
-    } catch { }
+    } catch { <# namjerno: probiranje fonta: nedostupan font znači da nije instaliran #> }
     return $false
 }
 
@@ -51,7 +51,7 @@ function Import-BrandFonts {
                     foreach ($known in $collection.Families) {
                         if (-not $owner.ContainsKey($known.Name)) { $owner[$known.Name] = $prefix }
                     }
-                } catch { }
+                } catch { Write-AppLog 'Debug' 'Font: AddFontFile' $_ }
             }
         }
         if ($loaded -eq 0) { $collection.Dispose(); return $result }
@@ -60,7 +60,7 @@ function Import-BrandFonts {
             if ($null -eq $result.Head -and $owner[$family.Name] -eq 'Orbitron') { $result.Head = $family }
             if ($null -eq $result.Body -and $owner[$family.Name] -eq 'Sora')     { $result.Body = $family }
         }
-    } catch { }
+    } catch { Write-AppLog 'Debug' 'Font: AddFontFile' $_ }
     return $result
 }
 
@@ -152,12 +152,12 @@ function Initialize-Resources {
 
 function Remove-AppResources {
     # Redoslijed: prvo zaustaviti rad i osloboditi formu (kontrole drže reference na fontove), tek onda fontove i njihovu kolekciju.
-    try { if ($script:UI.ProgressResetTimer) { $script:UI.ProgressResetTimer.Stop(); $script:UI.ProgressResetTimer.Dispose() } } catch { }
-    try { Stop-DeepScan } catch { }
-    try { if ($script:UI.DeepTimer) { $script:UI.DeepTimer.Stop(); $script:UI.DeepTimer.Dispose() } } catch { }
-    try { if ($script:UI.LiveTimer) { $script:UI.LiveTimer.Stop(); $script:UI.LiveTimer.Dispose() } } catch { }
-    try { if ($script:UI.ProgressTimer) { $script:UI.ProgressTimer.Stop(); $script:UI.ProgressTimer.Dispose() } } catch { }
-    try { if ($script:UI.Form) { $script:UI.Form.Dispose() } } catch { }
+    try { if ($script:UI.ProgressResetTimer) { $script:UI.ProgressResetTimer.Stop(); $script:UI.ProgressResetTimer.Dispose() } } catch { <# namjerno: oslobađanje resursa: greška pri zatvaranju nije bitna #> }
+    try { Stop-DeepScan } catch { <# namjerno: izlaz iz alata: greška pri zaustavljanju skeniranja nije bitna #> }
+    try { if ($script:UI.DeepTimer) { $script:UI.DeepTimer.Stop(); $script:UI.DeepTimer.Dispose() } } catch { <# namjerno: oslobađanje resursa: greška pri zatvaranju nije bitna #> }
+    try { if ($script:UI.LiveTimer) { $script:UI.LiveTimer.Stop(); $script:UI.LiveTimer.Dispose() } } catch { <# namjerno: oslobađanje resursa: greška pri zatvaranju nije bitna #> }
+    try { if ($script:UI.ProgressTimer) { $script:UI.ProgressTimer.Stop(); $script:UI.ProgressTimer.Dispose() } } catch { <# namjerno: oslobađanje resursa: greška pri zatvaranju nije bitna #> }
+    try { if ($script:UI.Form) { $script:UI.Form.Dispose() } } catch { <# namjerno: oslobađanje resursa: greška pri zatvaranju nije bitna #> }
     Remove-AppFonts
 }
 
@@ -259,7 +259,15 @@ function Write-AppLog {
             for ($i = 0; $i -lt ($old.Count - 9); $i++) { try { [System.IO.File]::Delete($old[$i]) } catch { Write-Verbose ('Dnevnik: ' + $_.Exception.Message) } }
             $script:LogPath = [System.IO.Path]::Combine($dir, ('Auxilium_{0}.log' -f [datetime]::Now.ToString('yyyyMMdd', [System.Globalization.CultureInfo]::InvariantCulture)))
         }
-        $text = (Format-AppLogLine $Level $Message $Err $env:USERPROFILE) + [Environment]::NewLine
+        $line = Format-AppLogLine $Level $Message $Err $env:USERPROFILE
+        # Ista greška u tajmeru ili crtanju ponavlja se desetke puta u minuti: uzastopni jednaki zapisi (bez vremena) se spajaju u "ponovljeno N puta".
+        $signature = $line.Substring([Math]::Min(13, $line.Length))
+        if ($signature -ceq $script:LogLastSignature) { $script:LogRepeats++; return }
+        $text = ''
+        if ($script:LogRepeats -gt 0) { $text = ('{0} [{1,-5}] (prethodni zapis ponovljen još {2} puta)' -f [datetime]::Now.ToString('HH:mm:ss.fff', [System.Globalization.CultureInfo]::InvariantCulture), 'INFO', $script:LogRepeats) + [Environment]::NewLine }
+        $script:LogRepeats = 0
+        $script:LogLastSignature = $signature
+        $text += $line + [Environment]::NewLine
         [System.IO.File]::AppendAllText($script:LogPath, $text, (New-Object System.Text.UTF8Encoding($false)))
     } catch {
         $script:LogFailed = $true   # stick zaštićen ili izvučen: dnevnik ne smije srušiti alat ni usporavati svaki poziv

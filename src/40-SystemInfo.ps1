@@ -67,7 +67,7 @@ function Get-SystemInfoItems {
         $display = ''
         try {
             $display = [string](Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion' -Name DisplayVersion -ErrorAction Stop).DisplayVersion
-        } catch { }
+        } catch { <# namjerno: ubačena funkcija (runspace): nema dnevnika; polje se izostavlja #> }
         $versionText = '{0} (build {1})' -f $os.Version, $os.BuildNumber
         if (-not [string]::IsNullOrWhiteSpace($display)) { $versionText = '{0} / {1}' -f $versionText, $display }
         $items.Add((New-InfoItem 'KV' 'Verzija' $versionText))
@@ -93,7 +93,7 @@ function Get-SystemInfoItems {
         $cs = Get-CimInstance -OperationTimeoutSec 10 -ClassName Win32_ComputerSystem -ErrorAction Stop
         $model = ('{0} {1}' -f $cs.Manufacturer, $cs.Model).Trim()
         $items.Add((New-InfoItem 'KV' 'Model' $model))
-    } catch { }
+    } catch { <# namjerno: ubačena funkcija (runspace): nema dnevnika; polje se izostavlja #> }
     try {
         $board = Get-CimInstance -OperationTimeoutSec 10 -ClassName Win32_BaseBoard -ErrorAction Stop | Select-Object -First 1
         $boardText = ('{0} {1}' -f $board.Manufacturer, $board.Product).Trim()
@@ -124,7 +124,7 @@ function Get-SystemInfoItems {
                 $items.Add((New-InfoItem 'Bar' 'CPU' ('{0:N0} % opterećenje' -f $cpuLoad) $cpuStatus $cpuLoad))
             }
         }
-    } catch { }
+    } catch { <# namjerno: ubačena funkcija (runspace): nema dnevnika; polje se izostavlja #> }
     if ($null -ne $os) {
         try {
             $totalBytes = [double]$os.TotalVisibleMemorySize * 1KB
@@ -136,7 +136,7 @@ function Get-SystemInfoItems {
             $items.Add((New-InfoItem 'KV' 'RAM ukupno' (Format-Bytes $totalBytes)))
             $items.Add((New-InfoItem 'KV' 'RAM slobodno' ('{0} ({1:N0} %)' -f (Format-Bytes $freeBytes), $freePct) $ramStatus))
             $items.Add((New-InfoItem 'Bar' 'RAM' ('{0:N0} % zauzeto' -f (100 - $freePct)) $ramStatus (100 - $freePct)))
-        } catch { }
+        } catch { <# namjerno: ubačena funkcija (runspace): nema dnevnika; polje se izostavlja #> }
     }
 
     # --- Grafička kartica (GPU) ---
@@ -175,7 +175,7 @@ function Get-SystemInfoItems {
                             break
                         }
                     }
-                } catch { }
+                } catch { <# namjerno: ubačena funkcija (runspace): nema dnevnika; polje se izostavlja #> }
             }
             if ($vramBytes -gt 0) { $items.Add((New-InfoItem 'KV' '  VRAM' (Format-Bytes $vramBytes))) }
 
@@ -261,7 +261,7 @@ function Get-SystemInfoItems {
                         $items.Add((New-InfoItem 'KV' '  Sati rada' ('{0:N0} h' -f $rel.PowerOnHours)))
                     }
                 }
-            } catch { }
+            } catch { <# namjerno: ubačena funkcija (runspace): nema dnevnika; polje se izostavlja #> }
         }
     } catch {
         $items.Add((New-InfoItem 'Text' '' ('Get-PhysicalDisk nije dostupan: ' + $_.Exception.Message) 'Warn'))
@@ -363,7 +363,7 @@ function Show-SystemInfo {
     $rtb = $script:UI.Status
     $c   = $script:Colors
     $firstLine = 0
-    if ($KeepScroll) { try { $firstLine = [Auxilium.NativeMethods]::GetFirstVisibleLine($rtb.Handle) } catch { } }
+    if ($KeepScroll) { try { $firstLine = [Auxilium.NativeMethods]::GetFirstVisibleLine($rtb.Handle) } catch { <# namjerno: kozmetika sučelja (tema, pomak, fokus): bez toga alat radi #> } }
     # Panel se briše i gradi redak po redak (oko 150 ms): bez isključenog iscrtavanja cijela kolona vidljivo trepne.
     [Auxilium.NativeMethods]::SetRedraw($rtb.Handle, $false)
     try {
@@ -408,13 +408,13 @@ function Show-SystemInfo {
         $rtb.SelectionStart  = 0
         $rtb.SelectionLength = 0
         $rtb.ScrollToCaret()
-        if ($KeepScroll -and $firstLine -gt 0) { try { [Auxilium.NativeMethods]::ScrollToFirstVisibleLine($rtb.Handle, $firstLine) } catch { } }
+        if ($KeepScroll -and $firstLine -gt 0) { try { [Auxilium.NativeMethods]::ScrollToFirstVisibleLine($rtb.Handle, $firstLine) } catch { <# namjerno: kozmetika sučelja (tema, pomak, fokus): bez toga alat radi #> } }
     } finally {
         [Auxilium.NativeMethods]::SetRedraw($rtb.Handle, $true)
         $rtb.Invalidate()
     }
     # Health Score se računa iz istih stavki koje se prikazuju.
-    try { Update-HealthTile $Items } catch { }
+    try { Update-HealthTile $Items } catch { Write-AppLog 'Debug' 'Update-HealthTile' $_ }
 }
 
 # Prikupljanje podataka (CIM/Storage upiti) izvodi se u zasebnom runspaceu, a sučelje se pumpa dok se čeka.
@@ -449,11 +449,11 @@ function Get-SystemInfoItemsAsync {
             if ($stop -or $watch.Elapsed.TotalSeconds -gt $TimeoutSeconds) {
                 $abandoned = $true
                 $script:AbandonedRunspace = $true
-                try { [void]$ps.BeginStop($null, $null) } catch { }
+                try { [void]$ps.BeginStop($null, $null) } catch { <# namjerno: zaustavljanje napuštenog runspacea: zapeti WMI poziv se ionako ne može prekinuti #> }
                 if (-not $stop) {
                     Write-Terminal 'Prikupljanje podataka o sustavu je isteklo (WMI/CIM ne odgovara).' 'Warn'
                     $partial = @()
-                    try { $partial = @($sink.ToArray()) } catch { }
+                    try { $partial = @($sink.ToArray()) } catch { Write-AppLog 'Debug' 'Get-SystemInfoItemsAsync: sink.ToArray()' $_ }
                     if ($partial.Count -gt 0) {
                         $partial += (New-InfoItem 'Text' '' 'Prikupljanje je isteklo: prikazani su samo podaci prikupljeni do tada (WMI/CIM ne odgovara).' 'Warn')
                         return ,$partial
@@ -469,8 +469,8 @@ function Get-SystemInfoItemsAsync {
         return ,@($output)
     } finally {
         if (-not $abandoned) {
-            try { if ($null -ne $ps) { $ps.Dispose() } } catch { }
-            try { if ($null -ne $rs) { $rs.Dispose() } } catch { }
+            try { if ($null -ne $ps) { $ps.Dispose() } } catch { <# namjerno: oslobađanje resursa: greška pri zatvaranju nije bitna #> }
+            try { if ($null -ne $rs) { $rs.Dispose() } } catch { <# namjerno: oslobađanje resursa: greška pri zatvaranju nije bitna #> }
         }
     }
 }

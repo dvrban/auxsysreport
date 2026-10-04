@@ -37,7 +37,7 @@ function Remove-DirectoryTree {
                 $Result.Folders++
             } else {
                 $length = 0
-                try { $length = $entry.Length } catch { }
+                try { $length = $entry.Length } catch { <# namjerno: veličina datoteke nedostupna: računa se kao 0 #> }
                 if ($entry.IsReadOnly) { $entry.IsReadOnly = $false }
                 $entry.Delete()
                 $Result.Files++
@@ -132,7 +132,7 @@ function Clear-TempFolders {
     $script:KeepDirs = @{}
     foreach ($active in @($env:TEMP, $env:TMP, [System.IO.Path]::GetTempPath())) {
         if ([string]::IsNullOrWhiteSpace($active)) { continue }
-        try { $script:KeepDirs[[System.IO.Path]::GetFullPath($active).TrimEnd('\').ToLowerInvariant()] = $true } catch { }
+        try { $script:KeepDirs[[System.IO.Path]::GetFullPath($active).TrimEnd('\').ToLowerInvariant()] = $true } catch { <# namjerno: neispravna putanja se ne dodaje među zaštićene mape #> }
     }
     try {
         foreach ($target in @(Get-TempFolderTargets)) {
@@ -146,7 +146,7 @@ function Clear-TempFolders {
         $script:KeepDirs = $null
     }
     if (-not [string]::IsNullOrWhiteSpace($env:TEMP) -and -not (Test-Path -LiteralPath $env:TEMP)) {
-        try { [void](New-Item -ItemType Directory -Path $env:TEMP -Force) } catch { }
+        try { [void](New-Item -ItemType Directory -Path $env:TEMP -Force) } catch { Write-AppLog 'Debug' 'Clear-TempFolders: ponovno stvaranje TEMP-a' $_ }
     }
     return $freed
 }
@@ -208,7 +208,7 @@ function Clear-UpdateCache {
         try {
             $svc = Get-Service -Name $serviceName -ErrorAction Stop
             $startType = ''
-            try { $startType = [string]$svc.StartType } catch { }
+            try { $startType = [string]$svc.StartType } catch { <# namjerno: tip pokretanja servisa nije dostupan #> }
             if ($startType -eq 'Disabled') {
                 Write-Terminal '  Servis wuauserv je onemogućen (Disabled) - ostaje zaustavljen.' 'Warn'
             } else {

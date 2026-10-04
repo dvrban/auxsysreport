@@ -10,7 +10,7 @@ try {
             'Auxilium Informatika',
             [System.Windows.Forms.MessageBoxButtons]::OK,
             [System.Windows.Forms.MessageBoxIcon]::Error)
-    } catch { }
+    } catch { <# namjerno: poruka o fatalnoj grešci ne smije sama baciti iznimku #> }
 } finally {
     Remove-AppResources
     # Zapeti WMI upit u napuštenom runspaceu (foreground nit) inače bi držao skriveni powershell.exe živim: tada se proces završava silom.

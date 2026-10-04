@@ -50,7 +50,7 @@ function Export-EventLogChannel {
             $read = $stream.ReadAsync($buffer, 0, $buffer.Length)
             while (-not $read.IsCompleted) {
                 if (Test-StopRequested) {
-                    try { $proc.Kill() } catch { }
+                    try { $proc.Kill() } catch { <# namjerno: proces je možda već završio #> }
                     $result.Error = 'prekinuto'
                     return $result
                 }
@@ -80,7 +80,7 @@ function Export-EventLogChannel {
         $writer = $null
         while (-not $proc.HasExited) { Update-Ui; Start-Sleep -Milliseconds 10 }
         $errText = ''
-        try { $errText = ([string]$errTask.Result).Trim() } catch { }
+        try { $errText = ([string]$errTask.Result).Trim() } catch { <# namjerno: tekst pogreške procesa nije obavezan #> }
         $result.Events = $maxIndex + 1
         $result.Bytes  = ([System.IO.FileInfo]$Path).Length
         if ($proc.ExitCode -ne 0) {
@@ -93,8 +93,8 @@ function Export-EventLogChannel {
     } catch {
         $result.Error = $_.Exception.Message
     } finally {
-        if ($null -ne $writer) { try { $writer.Dispose() } catch { } }
-        if ($null -ne $proc) { try { $proc.Dispose() } catch { } }
+        if ($null -ne $writer) { try { $writer.Dispose() } catch { <# namjerno: oslobađanje resursa: greška pri zatvaranju nije bitna #> } }
+        if ($null -ne $proc) { try { $proc.Dispose() } catch { <# namjerno: oslobađanje resursa: greška pri zatvaranju nije bitna #> } }
     }
     return $result
 }
@@ -117,17 +117,17 @@ function Clear-EventLogChannel {
         $outTask = $proc.StandardOutput.ReadToEndAsync()
         $watch = [System.Diagnostics.Stopwatch]::StartNew()
         while (-not $proc.HasExited) {
-            if ($watch.Elapsed.TotalSeconds -gt 90) { try { $proc.Kill() } catch { }; $result.Error = 'isteklo vrijeme'; return $result }
+            if ($watch.Elapsed.TotalSeconds -gt 90) { try { $proc.Kill() } catch { <# namjerno: proces je možda već završio #> }; $result.Error = 'isteklo vrijeme'; return $result }
             Update-Ui
             Start-Sleep -Milliseconds 10
         }
         $errText = ''
-        try { $errText = ([string]$errTask.Result).Trim() } catch { }
+        try { $errText = ([string]$errTask.Result).Trim() } catch { <# namjerno: tekst pogreške procesa nije obavezan #> }
         if ($proc.ExitCode -eq 0) { $result.Ok = $true } else { $result.Error = $(if ($errText) { $errText } else { 'izlazni kod ' + $proc.ExitCode }) }
     } catch {
         $result.Error = $_.Exception.Message
     } finally {
-        if ($null -ne $proc) { try { $proc.Dispose() } catch { } }
+        if ($null -ne $proc) { try { $proc.Dispose() } catch { <# namjerno: oslobađanje resursa: greška pri zatvaranju nije bitna #> } }
     }
     return $result
 }
@@ -216,7 +216,7 @@ function Invoke-EventLogClearTask {
     try {
         $root = [System.IO.Path]::GetPathRoot($dir)
         if (-not [string]::IsNullOrEmpty($root) -and -not $root.StartsWith('\\')) { $free = (New-Object System.IO.DriveInfo($root)).AvailableFreeSpace }
-    } catch { }
+    } catch { Write-AppLog 'Debug' 'Provjera slobodnog prostora za izvoz dnevnika' $_ }
     if ($null -ne $free -and $free -lt $need) {
         throw ('Na odredišnom pogonu nema dovoljno slobodnog prostora za izvoz dnevnika: potrebno oko {0}, slobodno {1}. Dnevnici nisu dirani.' -f (Format-Bytes ([double]$need)), (Format-Bytes ([double]$free)))
     }
@@ -273,7 +273,7 @@ function Invoke-EventLogClearTask {
     }
     $manifest = [System.IO.Path]::Combine($dir, '00-POPIS.txt')
     if (Test-StopRequested) {
-        try { Write-LogManifest -Path $manifest -Plan $plan -Stage 'izvoz prekinut - nijedan dnevnik nije obrisan' } catch { }
+        try { Write-LogManifest -Path $manifest -Plan $plan -Stage 'izvoz prekinut - nijedan dnevnik nije obrisan' } catch { Write-AppLog 'Debug' 'Zapis popisa (00-POPIS.txt) dnevnika' $_ }
         Write-Terminal 'Zadatak je prekinut tijekom izvoza: NIJEDAN dnevnik nije obrisan. Dosad izvezene datoteke ostaju u mapi.' 'Warn'
         return
     }
@@ -304,7 +304,7 @@ function Invoke-EventLogClearTask {
         }
     }
     $cleared = @($plan | Where-Object { $_.Cleared }).Count
-    try { Write-LogManifest -Path $manifest -Plan $plan -Stage 'završeno' } catch { }
+    try { Write-LogManifest -Path $manifest -Plan $plan -Stage 'završeno' } catch { Write-AppLog 'Debug' 'Zapis popisa (00-POPIS.txt) dnevnika' $_ }
     Set-ProgressMode 'Value' 100
     if (Test-StopRequested) {
         Write-Terminal ('Brisanje je prekinuto: obrisano {0} od {1} izvezenih dnevnika.' -f $cleared, $exported.Count) 'Warn'

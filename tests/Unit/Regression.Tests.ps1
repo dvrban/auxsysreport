@@ -189,3 +189,23 @@ Describe 'Set-LiveRow ne prepisuje redak kad se prikaz nije promijenio' {
         $text | Should -Match 'New-Object System\.Drawing\.Rectangle'
     }
 }
+
+Describe 'Trijaža praznih catch blokova (T1.5)' {
+    It 'svaki prazan catch u src\ (uključujući deep\DeepScan.ps1) ima oznaku "namjerno:" s razlogom' {
+        $bad = New-Object System.Collections.Generic.List[string]
+        foreach ($file in [System.IO.Directory]::GetFiles($script:AuxSrcRoot, '*.ps1', [System.IO.SearchOption]::AllDirectories)) {
+            $tokens = $null; $errors = $null
+            $ast = [System.Management.Automation.Language.Parser]::ParseFile($file, [ref]$tokens, [ref]$errors)
+            $empty = $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.CatchClauseAst] -and $n.Body.Statements.Count -eq 0 }, $true)
+            foreach ($c in $empty) {
+                if ($c.Extent.Text -notmatch 'namjerno:\s*\S') { $bad.Add(('{0}:{1}' -f [System.IO.Path]::GetFileName($file), $c.Extent.StartLineNumber)) }
+            }
+        }
+        $bad | Should -BeNullOrEmpty
+    }
+    It 'funkcije ubačene u runspace ne zovu Write-AppLog (koristi $script:)' {
+        foreach ($name in 'Get-SystemInfoItems', 'Get-InventoryData', 'New-InventoryResult') {
+            (Get-AuxAst $name).Extent.Text | Should -Not -Match 'Write-AppLog'
+        }
+    }
+}

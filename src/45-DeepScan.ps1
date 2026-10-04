@@ -43,14 +43,14 @@ function Remove-DeepTempFile {
 function Stop-DeepScan {
     $d = $script:Deep
     if ($null -ne $d.Process) {
-        try { if (-not $d.Process.HasExited) { $d.Process.Kill() } } catch { }
-        try { $d.Process.Dispose() } catch { }
+        try { if (-not $d.Process.HasExited) { $d.Process.Kill() } } catch { <# namjerno: proces je možda već završio #> }
+        try { $d.Process.Dispose() } catch { <# namjerno: oslobađanje resursa: greška pri zatvaranju nije bitna #> }
     }
     $d.Process = $null
     $d.Readers = @()
     Remove-DeepTempFile
     if ($d.State -eq 'Running') { $d.State = 'Cancelled' }
-    if ($null -ne $script:UI.DeepTimer) { try { $script:UI.DeepTimer.Stop() } catch { } }
+    if ($null -ne $script:UI.DeepTimer) { try { $script:UI.DeepTimer.Stop() } catch { <# namjerno: tajmer je možda već zaustavljen #> } }
 }
 
 # Privatna mapa za privremenu skriptu skeniranja (T1.8). %TEMP% može pisati i proces srednje razine integriteta istog korisnika, a pozadinski
@@ -254,8 +254,8 @@ function Complete-DeepScan {
     $errBytes = @()
     if (@($d.Readers).Count -gt 1) { $errBytes = $d.Readers[1].Ms.ToArray() }
     $exitCode = -1
-    try { $exitCode = $d.Process.ExitCode } catch { }
-    try { $d.Process.Dispose() } catch { }
+    try { $exitCode = $d.Process.ExitCode } catch { <# namjerno: proces je već nestao: izlazni kod ostaje -1 #> }
+    try { $d.Process.Dispose() } catch { <# namjerno: oslobađanje resursa: greška pri zatvaranju nije bitna #> }
     $d.Process = $null
     $d.Readers = @()
     Remove-DeepTempFile
@@ -282,7 +282,7 @@ function Complete-DeepScan {
             $d.Error = ('neispravan odgovor pozadinskog procesa: {0}' -f $_.Exception.Message)
         }
     }
-    if ($null -ne $script:UI.DeepTimer) { try { $script:UI.DeepTimer.Stop() } catch { } }
+    if ($null -ne $script:UI.DeepTimer) { try { $script:UI.DeepTimer.Stop() } catch { <# namjerno: tajmer je možda već zaustavljen #> } }
 
     $message = 'Softver (Office, mail), ažuriranja na čekanju i dnevnici događaja (7 dana) su učitani.'
     $level   = 'Ok'
@@ -302,7 +302,7 @@ function Stop-DeepScanTimeout {
     try {
         Read-DeepOutput
         if (@($d.Readers).Count -gt 0) { $partial = $d.Readers[0].Ms.ToArray() }
-    } catch { }
+    } catch { Write-AppLog 'Debug' 'Stop-DeepScanTimeout: čitanje djelomičnog izlaza' $_ }
     Stop-DeepScan
 
     $got = @()
@@ -327,7 +327,7 @@ function Stop-DeepScanTimeout {
 function Update-DeepScan {
     $d = $script:Deep
     if ($d.State -ne 'Running') {
-        if ($null -ne $script:UI.DeepTimer) { try { $script:UI.DeepTimer.Stop() } catch { } }
+        if ($null -ne $script:UI.DeepTimer) { try { $script:UI.DeepTimer.Stop() } catch { <# namjerno: tajmer je možda već zaustavljen #> } }
         return
     }
     try {

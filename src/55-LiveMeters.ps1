@@ -22,7 +22,7 @@ function Set-LiveRow {
     $selStart = $rtb.SelectionStart
     $selLen   = $rtb.SelectionLength
     $firstLine = 0
-    try { $firstLine = [Auxilium.NativeMethods]::GetFirstVisibleLine($rtb.Handle) } catch { }
+    try { $firstLine = [Auxilium.NativeMethods]::GetFirstVisibleLine($rtb.Handle) } catch { <# namjerno: kozmetika sučelja (tema, pomak, fokus): bez toga alat radi #> }
     [Auxilium.NativeMethods]::SetRedraw($rtb.Handle, $false)
     try {
         $rtb.Select($row.Start, $row.Length)
@@ -30,7 +30,7 @@ function Set-LiveRow {
         $rtb.Select($row.Start, $row.Length)
         $rtb.SelectionColor = (Get-StatusColor $Status)
         $rtb.Select($selStart, $selLen)
-        try { [Auxilium.NativeMethods]::ScrollToFirstVisibleLine($rtb.Handle, $firstLine) } catch { }
+        try { [Auxilium.NativeMethods]::ScrollToFirstVisibleLine($rtb.Handle, $firstLine) } catch { <# namjerno: kozmetika sučelja (tema, pomak, fokus): bez toga alat radi #> }
     } finally {
         [Auxilium.NativeMethods]::SetRedraw($rtb.Handle, $true)
     }
@@ -59,7 +59,7 @@ function Update-LiveMeters {
             }
             $script:CpuPrev = @{ Idle = $idle; Total = $total }
         }
-    } catch { }
+    } catch { Write-AppLog 'Debug' 'Update-LiveMeters: CPU' $_ }
     if ($script:LiveRows.Count -eq 0) { return }
     if ($null -ne $cpuPct) {
         $st = 'Good'
@@ -67,7 +67,7 @@ function Update-LiveMeters {
         Set-LiveRow 'CPU' $cpuPct $st ('{0:N0} % opterećenje' -f $cpuPct)
     }
     $mem = -1
-    try { $mem = [int][Auxilium.NativeMethods]::GetMemoryLoad() } catch { }
+    try { $mem = [int][Auxilium.NativeMethods]::GetMemoryLoad() } catch { Write-AppLog 'Debug' 'Update-LiveMeters: RAM' $_ }
     if ($mem -ge 0) {
         $st = 'Good'
         if ($mem -ge 90) { $st = 'Bad' } elseif ($mem -ge 80) { $st = 'Warn' }

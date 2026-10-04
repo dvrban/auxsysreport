@@ -69,8 +69,7 @@ function Invoke-HeaderPaint {
         # Donji obrub trake zaglavlja (1 px).
         $pen = New-Object System.Drawing.Pen ($c.Line)
         $g.DrawLine($pen, 0, ($Sender.Height - 1), $Sender.Width, ($Sender.Height - 1))
-    } catch {
-    } finally {
+    } catch { Write-AppLog 'Debug' 'Invoke-HeaderPaint' $_ } finally {
         if ($null -ne $sf) { $sf.Dispose() }
         if ($null -ne $sfRight) { $sfRight.Dispose() }
         if ($null -ne $pen) { $pen.Dispose() }
@@ -330,7 +329,7 @@ function New-ClientBar {
     $comboFrame.Controls.Add($combo)
     $script:UI.ComboFrame = $comboFrame
     # Stvarna visina polja poznata je tek kad ComboBox dobije prozor (prije toga javlja 21 px, a ima 25 px): tada se okvir uskladi.
-    $combo.Add_HandleCreated({ try { $script:UI.ComboFrame.Height = $script:UI.CompanyBox.Height + 2 } catch { } })
+    $combo.Add_HandleCreated({ try { $script:UI.ComboFrame.Height = $script:UI.CompanyBox.Height + 2 } catch { <# namjerno: kozmetika sučelja (tema, pomak, fokus): bez toga alat radi #> } })
 
     # Onemogućen standardni ComboBox crta se svijetlosivo (sistemske boje) i ruši tamnu temu: dok traje zadatak umjesto njega
     # stoji tamna oznaka s istim tekstom, a pravi popis je skriven (i opet vidljiv čim se omogući).
@@ -352,7 +351,7 @@ function New-ClientBar {
             $script:UI.ComboOff.Text    = $box.Text
             $script:UI.ComboOff.Visible = (-not $box.Enabled)
             $box.Visible                = $box.Enabled
-        } catch { }
+        } catch { <# namjerno: kozmetika sučelja (tema, pomak, fokus): bez toga alat radi #> }
     })
 
     $btnOpen = New-FlatButton 'Otvori mapu'
@@ -377,7 +376,7 @@ function New-ClientBar {
         try {
             $linePen = New-Object System.Drawing.Pen ($script:Colors.Line)
             try { $e.Graphics.DrawLine($linePen, 0, ($sender.Height - 1), $sender.Width, ($sender.Height - 1)) } finally { $linePen.Dispose() }
-        } catch { }
+        } catch { Write-AppLog 'Debug' 'New-ClientBar: crtanje' $_ }
     })
 
     $bar.Controls.Add($title, 0, 0)
@@ -400,8 +399,8 @@ function New-ClientBar {
     $combo.Add_Leave({
         if (-not $script:Busy -and -not $script:Closing) { Set-ActiveCompany $script:UI.CompanyBox.Text }
     })
-    $combo.Add_Enter({ try { $script:UI.ComboFrame.BackColor = $script:Colors.Cyan } catch { } })
-    $combo.Add_Leave({ try { $script:UI.ComboFrame.BackColor = $script:Colors.Line } catch { } })
+    $combo.Add_Enter({ try { $script:UI.ComboFrame.BackColor = $script:Colors.Cyan } catch { <# namjerno: kozmetika sučelja (tema, pomak, fokus): bez toga alat radi #> } })
+    $combo.Add_Leave({ try { $script:UI.ComboFrame.BackColor = $script:Colors.Line } catch { <# namjerno: kozmetika sučelja (tema, pomak, fokus): bez toga alat radi #> } })
     $combo.Add_SelectionChangeCommitted({
         Set-ActiveCompany ([string]$script:UI.CompanyBox.SelectedItem) -KeepOrder
     })
@@ -509,20 +508,20 @@ function New-MainForm {
         try {
             $script:UI.ProgressResetTimer.Stop()
             if (-not $script:Busy) { Set-ProgressMode 'Idle' }
-        } catch { }
+        } catch { Write-AppLog 'Debug' 'Tajmer: ProgressResetTimer' $_ }
     })
     $script:UI.ProgressResetTimer = $resetTimer
 
     # Tajmer koji prati pozadinsko prikupljanje (ažuriranja na čekanju i dnevnici događaja).
     $deepTimer = New-Object System.Windows.Forms.Timer
     $deepTimer.Interval = 400
-    $deepTimer.Add_Tick({ try { Update-DeepScan } catch { } })
+    $deepTimer.Add_Tick({ try { Update-DeepScan } catch { Write-AppLog 'Debug' 'Tajmer: Update-DeepScan' $_ } })
     $script:UI.DeepTimer = $deepTimer
 
     # Tajmer za uživo osvježavanje CPU i RAM barova u statusu sustava (svake 2 s).
     $liveTimer = New-Object System.Windows.Forms.Timer
     $liveTimer.Interval = 2000
-    $liveTimer.Add_Tick({ try { Update-LiveMeters } catch { } })
+    $liveTimer.Add_Tick({ try { Update-LiveMeters } catch { Write-AppLog 'Debug' 'Tajmer: Update-LiveMeters' $_ } })
     $script:UI.LiveTimer = $liveTimer
     $liveTimer.Start()
 
@@ -688,7 +687,7 @@ function New-MainForm {
     $btnLogs.Add_Click({ Start-GuiTask -Title 'Izvoz i brisanje dnevnika događaja' -Command 'Invoke-EventLogClearTask' })
     $btnJson.Add_Click({ Start-GuiTask -Title 'Izvoz JSON-a za IT Inventar' -Command 'Invoke-InventoryExportTask' })
     $btnRefresh.Add_Click({ Start-GuiTask -Title 'Osvježavanje statusa sustava' -Command 'Update-SystemStatus' })
-    $btnClear.Add_Click({ try { $script:UI.Terminal.Clear() } catch { } })
+    $btnClear.Add_Click({ try { $script:UI.Terminal.Clear() } catch { <# namjerno: kozmetika sučelja (tema, pomak, fokus): bez toga alat radi #> } })
     $btnCancel.Add_Click({
         if ($script:Busy) {
             $script:CancelRequested = $true
@@ -712,10 +711,10 @@ function New-MainForm {
     })
 
     $form.Add_Shown({
-        try { [Auxilium.NativeMethods]::TryEnableDarkTitleBar($script:UI.Form.Handle) } catch { }
-        try { [Auxilium.NativeMethods]::TrySetDarkScrollbars($script:UI.Status.Handle) } catch { }
-        try { [Auxilium.NativeMethods]::TrySetDarkScrollbars($script:UI.Terminal.Handle) } catch { }
-        try { [Auxilium.NativeMethods]::TrySetTheme($script:UI.CompanyBox.Handle, 'DarkMode_CFD') } catch { }
+        try { [Auxilium.NativeMethods]::TryEnableDarkTitleBar($script:UI.Form.Handle) } catch { <# namjerno: kozmetika sučelja (tema, pomak, fokus): bez toga alat radi #> }
+        try { [Auxilium.NativeMethods]::TrySetDarkScrollbars($script:UI.Status.Handle) } catch { <# namjerno: kozmetika sučelja (tema, pomak, fokus): bez toga alat radi #> }
+        try { [Auxilium.NativeMethods]::TrySetDarkScrollbars($script:UI.Terminal.Handle) } catch { <# namjerno: kozmetika sučelja (tema, pomak, fokus): bez toga alat radi #> }
+        try { [Auxilium.NativeMethods]::TrySetTheme($script:UI.CompanyBox.Handle, 'DarkMode_CFD') } catch { <# namjerno: kozmetika sučelja (tema, pomak, fokus): bez toga alat radi #> }
         $adminText = 'standardni korisnik (neke radnje neće raditi)'
         if ($script:IsAdmin) { $adminText = 'administrator' }
         $script:ToolHash = Get-ToolFingerprint
