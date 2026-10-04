@@ -86,20 +86,16 @@
       "count": 9
     },
     {
-      "key": "Ljuska | PSAvoidUsingEmptyCatchBlock | Get-InventoryDataAsync | Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
-      "count": 3
-    },
-    {
       "key": "Ljuska | PSAvoidUsingEmptyCatchBlock | Get-SystemInfoItems | Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
       "count": 6
     },
     {
-      "key": "Ljuska | PSAvoidUsingEmptyCatchBlock | Get-SystemInfoItemsAsync | Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
-      "count": 3
-    },
-    {
       "key": "Ljuska | PSAvoidUsingEmptyCatchBlock | Initialize-PdfState | Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
       "count": 1
+    },
+    {
+      "key": "Ljuska | PSAvoidUsingEmptyCatchBlock | Invoke-BackgroundRunspace | Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
+      "count": 3
     },
     {
       "key": "Ljuska | PSAvoidUsingEmptyCatchBlock | Invoke-LiveProcess | Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",

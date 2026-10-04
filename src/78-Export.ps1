@@ -896,55 +896,24 @@ function Get-InventoryData {
 function Get-InventoryDataAsync {
     param([AllowNull()][AllowEmptyString()][string]$Company, [int]$TimeoutSeconds = 60)
 
-    $rs        = $null
-    $ps        = $null
-    $abandoned = $false
-    try {
-        $iss = [System.Management.Automation.Runspaces.InitialSessionState]::CreateDefault()
-        foreach ($name in @('New-InventoryResult', 'Get-InventoryData')) {
-            $body = (Get-Item -LiteralPath ('function:' + $name)).ScriptBlock.ToString()
-            $iss.Commands.Add((New-Object System.Management.Automation.Runspaces.SessionStateFunctionEntry($name, $body)))
-        }
-        $rs = [System.Management.Automation.Runspaces.RunspaceFactory]::CreateRunspace($iss)
-        $rs.Open()
-        $ps = [System.Management.Automation.PowerShell]::Create()
-        $ps.Runspace = $rs
-        $sink = [hashtable]::Synchronized(@{})
-        $consoleUser = [string](Get-ConsoleUser)
-        [void]$ps.AddCommand('Get-InventoryData').AddParameter('Company', $Company).AddParameter('ConsoleUser', $consoleUser).AddParameter('ToolVersion', $script:AppVersion).AddParameter('DeviceSink', $sink)
-        $async = $ps.BeginInvoke()
-
-        $watch = [System.Diagnostics.Stopwatch]::StartNew()
-        while (-not $async.IsCompleted) {
-            $stop = Test-StopRequested
-            if ($stop -or $watch.Elapsed.TotalSeconds -gt $TimeoutSeconds) {
-                # Zapeti WMI/CIM upit drži runspace živim: napušta se (proces se na kraju završava silom, vidi MAIN).
-                $abandoned = $true
-                $script:AbandonedRunspace = $true
-                try { [void]$ps.BeginStop($null, $null) } catch { <# namjerno: zaustavljanje napuštenog runspacea: zapeti WMI poziv se ionako ne može prekinuti #> }
-                if ($stop) { return $null }
-                $device = @{}
-                foreach ($key in @($sink.Keys)) { $device[$key] = $sink[$key] }
-                $partial = New-InventoryResult -Company $Company -ConsoleUser $consoleUser -ToolVersion $script:AppVersion -Device $device
-                return [pscustomobject]@{ Data = $partial; Partial = $true }
-            }
-            Update-Ui
-            Start-Sleep -Milliseconds 25
-        }
-        $output = @($ps.EndInvoke($async))
-        foreach ($streamError in $ps.Streams.Error) { Write-AppLog 'Warn' 'Prikupljanje inventara (runspace)' $streamError }
-        $data = $null
-        foreach ($item in $output) {
-            if ($item -is [System.Collections.IDictionary]) { $data = $item }
-        }
-        if ($null -eq $data) { throw 'Prikupljanje podataka nije vratilo rezultat.' }
-        return [pscustomobject]@{ Data = $data; Partial = $false }
-    } finally {
-        if (-not $abandoned) {
-            try { if ($null -ne $ps) { $ps.Dispose() } } catch { <# namjerno: oslobađanje resursa: greška pri zatvaranju nije bitna #> }
-            try { if ($null -ne $rs) { $rs.Dispose() } } catch { <# namjerno: oslobađanje resursa: greška pri zatvaranju nije bitna #> }
-        }
+    $sink = [hashtable]::Synchronized(@{})
+    $consoleUser = [string](Get-ConsoleUser)
+    $run = Invoke-BackgroundRunspace -Functions @('New-InventoryResult', 'Get-InventoryData') -Command 'Get-InventoryData' `
+        -Parameters @{ Company = $Company; ConsoleUser = $consoleUser; ToolVersion = $script:AppVersion; DeviceSink = $sink } -TimeoutSeconds $TimeoutSeconds
+    if ($run.State -eq 'Cancelled') { return $null }
+    if ($run.State -eq 'TimedOut') {
+        # Zapeti WMI/CIM upit: uz ono što je do tada prikupljeno vraća se djelomičan rezultat.
+        $device = @{}
+        foreach ($key in @($sink.Keys)) { $device[$key] = $sink[$key] }
+        $partial = New-InventoryResult -Company $Company -ConsoleUser $consoleUser -ToolVersion $script:AppVersion -Device $device
+        return [pscustomobject]@{ Data = $partial; Partial = $true }
     }
+    $data = $null
+    foreach ($item in $run.Output) {
+        if ($item -is [System.Collections.IDictionary]) { $data = $item }
+    }
+    if ($null -eq $data) { throw 'Prikupljanje podataka nije vratilo rezultat.' }
+    return [pscustomobject]@{ Data = $data; Partial = $false }
 }
 
 function ConvertTo-InventoryJson {
