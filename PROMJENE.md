@@ -12,3 +12,8 @@ Ovdje se bilježi neobjavljeni rad prema izdanju v5 (Faza 0 „Temelji“ iz izv
   i definiraju istih 122 funkcije najviše razine. Provjera: `tests\Test-SrcSplit.ps1`.
 - Pravila sastavljanja, kodiranje (UTF-8 s BOM-om, CRLF) i raspored: `src\README.md`. `.gitattributes` štiti BOM i CRLF u `src\`, `tests\`, `v4\` i u ovoj datoteci (`-text`).
 - Još nema `build.ps1` (T0.2): alat se i dalje pokreće iz `v4\`. Varijanta „Original“ (`Auxilium-Dijagnostika.ps1`) nije dirana (T3.3).
+
+### T0.2 – `build.ps1`
+- `build.ps1` sastavlja `src\` u `dist\Auxilium-Dijagnostika-Ljuska.ps1` (UTF-8 s BOM-om, CRLF) i piše `dist\MANIFEST.txt` (SHA-256, git hash). Bez parametara rezultat je **bajt-identičan v4** (SHA-256 `D8E2DDDC…EA2F4`).
+- `-BuildNumber N` mijenja samo redak `$script:BuildNumber`. Build pada ako oznaka ugrađenog dijela nije u izvoru točno jednom, ako datoteka nema BOM ili ima prekid retka koji nije CRLF, ili ako se sastavljena datoteka odnosno `deep\DeepScan.ps1` ne parsira.
+- Odstupanje od skice u izvještaju: git hash se ne umeće u izvornik (to bi promijenilo bajtove; ide u T1.12), nego samo u MANIFEST. `dist\` je u `.gitignore`. Harnessi iz izvještaja nisu u repozitoriju, pa kriterij „harnessi prolaze nad `dist\`“ još nije provjeren; zamjenjuje ga jednakost SHA-256 s v4.

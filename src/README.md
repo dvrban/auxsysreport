@@ -4,7 +4,7 @@ Izvor varijante „Ljuska“ podijeljen je iz jedne datoteke (v0.04, 6606 redaka
 Podjela je **mehanička** (tiket T0.1): nijedan redak koda nije izmijenjen, a dijelovi se sastavljaju natrag u
 `v4\Auxilium-Dijagnostika-Ljuska.ps1` **bajt po bajt** (SHA-256 `D8E2DDDC…EA2F4`). Izdanje `v4\` ostaje nepromijenjeno.
 
-Ovdje se još ne gradi ništa: `build.ps1` dolazi u T0.2. Do tada se alat i dalje pokreće iz `v4\`.
+Gradi se s `build.ps1` u korijenu repozitorija (T0.2): `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\build.ps1` daje `dist\Auxilium-Dijagnostika-Ljuska.ps1`.
 
 ## Raspored
 
@@ -78,4 +78,4 @@ Vrijedi samo dok `src\` odgovara izdanju v0.04; poslije prve izmjene koda zamjen
   izravno, samo sastavljena datoteka.
 - Skin sloj (T3.3) mora se umetnuti **prije** `90-Main.ps1`: `90-Main.ps1` otvara prozor i ne vraća se dok se on ne zatvori, a paleta `:Colors`
   puni se u `Initialize-Resources` (`10-Helpers.ps1`) i koristi u `30-`, `40-`, `60-` i `85-`. Dio koji bi došao iza `90-Main.ps1` izvršio bi se tek nakon zatvaranja prozora.
-- `build.ps1`, `dist\` i Pester testovi još ne postoje (T0.2, T0.5); do tada se alat pokreće iz `v4\`.
+- Pester testovi još ne postoje (T0.5). Izvor se ne pokreće izravno: pokreće se `dist\` ili `v4\`.
