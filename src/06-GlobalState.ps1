@@ -6,7 +6,14 @@ $script:AppTitle   = 'Auxilium Informatika - Dijagnostika i čišćenje sustava'
 $script:BuildNumber = 4
 if ($script:BuildNumber % 100 -eq 0) { $script:AppVersion = '{0}.0' -f [int]($script:BuildNumber / 100) } else { $script:AppVersion = '{0}.{1}' -f [int][Math]::Floor($script:BuildNumber / 100), ([int]($script:BuildNumber % 100)).ToString('00') }
 
-$script:UI                = @{}
+# Registar kontrola: svi ključevi se unaprijed postavljaju ($null) jer u strogom načinu (Set-StrictMode 2) čitanje nepostojećeg ključa baca iznimku,
+# a funkcije ih čitaju i prije nego što je forma izgrađena (npr. Write-Terminal, Update-ClientBar).
+$script:UI                = @{
+    ActionButtons = @(); ClientControls = @(); ClientUpdating = $false
+    BtnCancel = $null; ComboFrame = $null; ComboOff = $null; CompanyBox = $null; DeepTimer = $null; Form = $null; HealthTile = $null
+    LiveTimer = $null; PathLabel = $null; ProgressFill = $null; ProgressResetTimer = $null; ProgressTimer = $null; ProgressTrack = $null
+    Status = $null; Terminal = $null
+}
 $script:Colors            = @{}
 $script:Fonts             = @{}
 $script:Busy              = $false

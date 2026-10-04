@@ -397,7 +397,7 @@ function Show-SystemInfo {
                     $liveStart = $rtb.TextLength
                     $liveText  = $bar + ' ' + ('{0,3:N0} %' -f $it.Percent)
                     Add-RichText $rtb $liveText (Get-StatusColor $it.Status) -Indent 6 -Hanging 106 -Tabs @(112)
-                    $script:LiveRows[[string]$it.Label] = @{ Start = $liveStart; Length = $liveText.Length; Item = $it }
+                    $script:LiveRows[[string]$it.Label] = @{ Start = $liveStart; Length = $liveText.Length; Item = $it; Signature = '' }
                 }
             } else {
                 Add-RichText $rtb $it.Value (Get-StatusColor $it.Status) -Indent 6

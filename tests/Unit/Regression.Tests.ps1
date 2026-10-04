@@ -224,3 +224,18 @@ Describe 'T1.6 dijagnostički StrictMode' {
         $script:StrictMode | Should -Not -BeTrue
     }
 }
+
+Describe 'Strogi način: ključevi registra $script:UI su unaprijed postavljeni' {
+    It 'svaki ključ $script:UI.<Naziv> koji se koristi u izvoru postoji u početnoj hashtablici (GLOBAL STATE)' {
+        $gs = [System.IO.File]::ReadAllText((Join-Path $script:AuxSrcRoot '06-GlobalState.ps1'))
+        $m = [regex]::Match($gs, '(?s)\$script:UI\s*=\s*@\{(.*?)\r?\n\}')
+        $m.Success | Should -BeTrue
+        $defined = @([regex]::Matches($m.Groups[1].Value, '(\w+)\s*=') | ForEach-Object { $_.Groups[1].Value })
+        $used = New-Object 'System.Collections.Generic.HashSet[string]'
+        foreach ($file in [System.IO.Directory]::GetFiles($script:AuxSrcRoot, '*.ps1', [System.IO.SearchOption]::TopDirectoryOnly)) {
+            foreach ($mm in [regex]::Matches([System.IO.File]::ReadAllText($file), '\$script:UI\.([A-Za-z]\w*)(?!\w*\()')) { [void]$used.Add($mm.Groups[1].Value) }
+        }
+        $missing = @($used | Where-Object { $defined -notcontains $_ -and $_ -notin 'Keys', 'Values', 'Count' })
+        $missing | Should -BeNullOrEmpty
+    }
+}
