@@ -134,9 +134,16 @@ function Set-ActiveCompany {
 function Get-ConsoleUser {
     if ($null -eq $script:ConsoleUser) {
         $script:ConsoleUser = ''
-        try {
-            $script:ConsoleUser = [string](Get-CimInstance -ClassName Win32_ComputerSystem -OperationTimeoutSec 3 -ErrorAction Stop).UserName
-        } catch { }
+        # Prvo WTS API (bez WMI-ja, ne može zapeti na UI niti); CIM samo ako native poziv nije uspio (vraća $null).
+        $native = $null
+        try { $native = [Auxilium.NativeMethods]::GetConsoleUserName() } catch { Write-AppLog 'Debug' 'WTS: korisnik konzole' $_ }
+        if ($null -ne $native) {
+            $script:ConsoleUser = [string]$native
+        } else {
+            try {
+                $script:ConsoleUser = [string](Get-CimInstance -ClassName Win32_ComputerSystem -OperationTimeoutSec 3 -ErrorAction Stop).UserName
+            } catch { Write-AppLog 'Debug' 'CIM: korisnik konzole' $_ }
+        }
     }
     return $script:ConsoleUser
 }

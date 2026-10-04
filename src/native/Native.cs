@@ -386,6 +386,41 @@ namespace Auxilium
             return -1;
         }
 
+        // Korisnik prijavljen u konzolnu sesiju (DOMENA\korisnik) bez WMI-ja; "" = nitko nije prijavljen, null = poziv nije uspio.
+        [DllImport("kernel32.dll")]
+        private static extern uint WTSGetActiveConsoleSessionId();
+
+        [DllImport("wtsapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+        private static extern bool WTSQuerySessionInformationW(IntPtr hServer, uint sessionId, int wtsInfoClass, out IntPtr ppBuffer, out int pBytesReturned);
+
+        [DllImport("wtsapi32.dll")]
+        private static extern void WTSFreeMemory(IntPtr pMemory);
+
+        private static string QueryWtsString(uint sessionId, int infoClass)
+        {
+            IntPtr buffer = IntPtr.Zero;
+            int bytes;
+            if (!WTSQuerySessionInformationW(IntPtr.Zero, sessionId, infoClass, out buffer, out bytes) || buffer == IntPtr.Zero) { return null; }
+            try { return Marshal.PtrToStringUni(buffer); }
+            finally { WTSFreeMemory(buffer); }
+        }
+
+        public static string GetConsoleUserName()
+        {
+            try
+            {
+                uint session = WTSGetActiveConsoleSessionId();
+                if (session == 0xFFFFFFFF) { return ""; }
+                string user = QueryWtsString(session, 5);    // WTSUserName
+                if (user == null) { return null; }
+                if (user.Length == 0) { return ""; }
+                string domain = QueryWtsString(session, 7);  // WTSDomainName
+                if (string.IsNullOrEmpty(domain)) { return user; }
+                return domain + "\\" + user;
+            }
+            catch { return null; }
+        }
+
         public static void TryDestroyIcon(IntPtr handle)
         {
             try { DestroyIcon(handle); } catch { }

@@ -66,10 +66,6 @@
       "count": 4
     },
     {
-      "key": "Ljuska | PSAvoidUsingEmptyCatchBlock | Get-ConsoleUser | Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
-      "count": 1
-    },
-    {
       "key": "Ljuska | PSAvoidUsingEmptyCatchBlock | Get-InvInstalledRamBytes | Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
       "count": 1
     },
