@@ -718,9 +718,10 @@ function New-MainForm {
         try { [Auxilium.NativeMethods]::TrySetTheme($script:UI.CompanyBox.Handle, 'DarkMode_CFD') } catch { }
         $adminText = 'standardni korisnik (neke radnje neće raditi)'
         if ($script:IsAdmin) { $adminText = 'administrator' }
-        Write-Terminal ('Auxilium Informatika - Dijagnostika i čišćenje sustava v{0}' -f $script:AppVersion) 'Header'
+        $script:ToolHash = Get-ToolFingerprint
+        Write-Terminal ('Auxilium Informatika - Dijagnostika i čišćenje sustava v{0}' -f (Get-ToolVersionText)) 'Header'
         Write-Terminal ('Računalo: {0} | Korisnik: {1} | Prava: {2}' -f $env:COMPUTERNAME, [Environment]::UserName, $adminText) 'Info'
-        Write-AppLog 'Info' ('Pokrenuto: v{0}, prava: {1}' -f $script:AppVersion, $adminText)
+        Write-AppLog 'Info' ('Pokrenuto: v{0}, prava: {1}' -f (Get-ToolVersionText), $adminText)
         try {
             # Ako je UAC podignut drugim računom, Temp i koš koji se čiste pripadaju tom računu, a ne prijavljenom korisniku.
             $consoleUser = Get-ConsoleUser

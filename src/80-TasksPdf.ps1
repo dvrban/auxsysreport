@@ -16,7 +16,7 @@ function New-ReportModel {
         $items.Add((New-InfoItem 'KV' 'Korisnik' $console))
         if ($console -ne $runAs) { $items.Add((New-InfoItem 'KV' 'Alat pokrenut kao' $runAs)) }
     }
-    $items.Add((New-InfoItem 'KV' 'Verzija alata' $script:AppVersion))
+    $items.Add((New-InfoItem 'KV' 'Verzija alata' (Get-ToolVersionText)))
     # Mjesto za odjeljak Health Score: popunjava se nakon prikupljanja podataka (niže).
     $healthAt = $items.Count
     $items.Add((New-InfoItem 'Spacer'))

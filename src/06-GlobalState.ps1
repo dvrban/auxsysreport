@@ -22,6 +22,7 @@ $script:KeepDirs          = $null
 $script:AppRoot           = ''
 $script:LogPath           = ''      # dnevnik na stiku (Write-AppLog); LogFailed = zapis nije moguć, više se ne pokušava
 $script:LogFailed         = $false
+$script:ToolHash          = ''      # prvih 8 znakova SHA-256 ove skripte (Get-ToolFingerprint): dokaz koje je izdanje napravilo izvještaj
 $script:SettingsPath      = ''
 $script:SettingsWarned    = $false
 $script:SettingsLoadError = ''

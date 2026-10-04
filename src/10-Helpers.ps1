@@ -207,6 +207,25 @@ function Resolve-SystemTool {
     }
     return (Join-Path $dir $Name)
 }
+# Otisak ove skripte: prvih 8 heksadecimalnih znakova SHA-256 njezine datoteke (prazan niz ako se ne može izračunati, npr. nema datoteke).
+function Get-ToolFingerprint {
+    param([string]$Path = $PSCommandPath)
+    if ([string]::IsNullOrWhiteSpace($Path) -or -not [System.IO.File]::Exists($Path)) { return '' }
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        return ([BitConverter]::ToString($sha.ComputeHash([System.IO.File]::ReadAllBytes($Path))).Replace('-', '')).Substring(0, 8)
+    } catch {
+        Write-Verbose ('Otisak alata: ' + $_.Exception.Message)
+        return ''
+    } finally { $sha.Dispose() }
+}
+
+# Verzija za prikaz: "0.04" ili "0.04 (D8E2DDDC)" kad je otisak poznat.
+function Get-ToolVersionText {
+    if ($script:ToolHash) { return ('{0} ({1})' -f $script:AppVersion, $script:ToolHash) }
+    return [string]$script:AppVersion
+}
+
 # --- Dnevnik na stiku (T1.5): <stick>\Dnevnik\Auxilium_<datum>.log, zadnjih 10 datoteka, bez osobnih podataka.
 # Format-AppLogLine je čista funkcija (testira se Pesterom); Write-AppLog radi samo I/O.
 # Pozivati se smije samo s UI niti: koristi $script: varijable pa ga funkcije ubačene u runspace ne smiju zvati (provjerava Test-Closure.ps1).

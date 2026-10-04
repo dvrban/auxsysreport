@@ -107,3 +107,25 @@ Describe 'T1.4 duboko čišćenje ne ruši pozadinsko skeniranje' {
         $text | Should -Match 'Update-SystemStatus -IgnoreCancel -SkipDeep:\(-not \$rescan\)'
     }
 }
+
+Describe 'T1.12 otisak alata' {
+    BeforeAll { . ([scriptblock]::Create((Get-AuxFunctionText 'Get-ToolFingerprint', 'Get-ToolVersionText'))) }
+    It 'Get-ToolFingerprint daje prvih 8 znakova SHA-256 datoteke' {
+        $f = Join-Path ([System.IO.Path]::GetTempPath()) ('fp-' + [guid]::NewGuid().ToString('N') + '.ps1')
+        [System.IO.File]::WriteAllBytes($f, [System.Text.Encoding]::UTF8.GetBytes('abc'))
+        try { Get-ToolFingerprint $f | Should -Be 'BA7816BF' } finally { Remove-Item $f -Force }   # SHA-256("abc") = BA7816BF...
+    }
+    It 'bez datoteke vraća prazan niz' {
+        Get-ToolFingerprint 'nema-datoteke.ps1' | Should -Be ''
+        Get-ToolFingerprint '' | Should -Be ''
+    }
+    It 'Get-ToolVersionText: s otiskom i bez' {
+        $script:AppVersion = '0.05'; $script:ToolHash = 'A1B2C3D4'
+        Get-ToolVersionText | Should -Be '0.05 (A1B2C3D4)'
+        $script:ToolHash = ''
+        Get-ToolVersionText | Should -Be '0.05'
+    }
+    It 'PDF izvještaj i terminal koriste Get-ToolVersionText' {
+        $script:allSrcText | Should -Match "'Verzija alata' \(Get-ToolVersionText\)"
+    }
+}
