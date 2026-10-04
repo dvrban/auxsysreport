@@ -34,7 +34,7 @@
 [CmdletBinding()]
 param(
     [int]$BuildNumber = 0,
-    [string]$OutputDir = (Join-Path $PSScriptRoot 'dist'),
+    [string]$OutputDir = '',
     [switch]$SkipAnalyze,
     [switch]$SkipClosureCheck,
     [switch]$SkipTests,
@@ -43,10 +43,13 @@ param(
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version 2
+$root = $PSScriptRoot
+if ([string]::IsNullOrEmpty($root)) { $root = Split-Path -Parent $MyInvocation.MyCommand.Path }   # $PSScriptRoot u zadanoj vrijednosti parametra nije pouzdan (Windows PowerShell 5.1)
 
 $utf8    = New-Object System.Text.UTF8Encoding($false)
 $utf8Bom = New-Object System.Text.UTF8Encoding($true)
-$srcRoot = Join-Path $PSScriptRoot 'src'
+$srcRoot = Join-Path $root 'src'
+if ([string]::IsNullOrEmpty($OutputDir)) { $OutputDir = Join-Path $root 'dist' }
 $outName = 'Auxilium-Dijagnostika-Ljuska.ps1'
 
 function Read-SourceFile {
@@ -126,7 +129,7 @@ $commit = ''
 try {
     $git = Get-Command git -ErrorAction SilentlyContinue
     if ($null -ne $git) {
-        $out = & git -C $PSScriptRoot rev-parse --short HEAD 2>$null
+        $out = & git -C $root rev-parse --short HEAD 2>$null
         if ($LASTEXITCODE -eq 0 -and $out) { $commit = ([string]@($out)[0]).Trim() }
     }
 } catch { $commit = '' }   # namjerno: git nije obavezan za build
@@ -150,7 +153,7 @@ Write-Host ('Dijelova: {0}, bajtova: {1}, SHA-256: {2}{3}' -f $partFiles.Count, 
 # --- 6. Zatvaranje ovisnosti ubačenih funkcija (T0.4): nedostajuća funkcija ruši build, ne runtime
 if (-not $SkipClosureCheck) {
     $closureHost = (Get-Process -Id $PID).Path
-    & $closureHost -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'tests\Test-Closure.ps1') -Path $outPath
+    & $closureHost -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'tests\Test-Closure.ps1') -Path $outPath
     if ($LASTEXITCODE -ne 0) { throw 'Zatvaranje ovisnosti ubačenih funkcija nije u redu (vidi iznad).' }
 }
 
@@ -159,7 +162,7 @@ if (-not $SkipTests) {
     $pesterOk = Get-Module -ListAvailable -Name Pester | Where-Object { $_.Version.Major -ge 5 } | Select-Object -First 1
     if ($pesterOk) {
         $testHost = (Get-Process -Id $PID).Path
-        & $testHost -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'tests\Invoke-Tests.ps1')
+        & $testHost -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'tests\Invoke-Tests.ps1')
         if ($LASTEXITCODE -ne 0) { throw 'Pester testovi ne prolaze (vidi iznad).' }
     } else {
         Write-Warning 'Pester 5 nije instaliran: testovi su preskočeni (Install-Module Pester -MinimumVersion 5.0 -Scope CurrentUser).'
@@ -169,7 +172,7 @@ if (-not $SkipTests) {
 # --- 8. PSScriptAnalyzer (T0.3): novi nalazi u odnosu na baseline ruše build
 if (-not $SkipAnalyze) {
     if (Get-Module -ListAvailable -Name PSScriptAnalyzer) {
-        $analyzeArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $PSScriptRoot 'tests\Invoke-Analyze.ps1'), '-DistPath', $outPath)
+        $analyzeArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $root 'tests\Invoke-Analyze.ps1'), '-DistPath', $outPath)
         $hostExe = (Get-Process -Id $PID).Path
         & $hostExe @analyzeArgs
         if ($LASTEXITCODE -ne 0) { throw 'PSScriptAnalyzer: novi nalazi u odnosu na baseline (vidi iznad).' }

@@ -10,16 +10,19 @@
     Kontrolna lista za ručni pregled: test\README.md.
 #>
 [CmdletBinding()]
-param([string]$DistDir = (Join-Path $PSScriptRoot '..\dist'), [switch]$NoLaunch)
+param([string]$DistDir = '', [switch]$NoLaunch)
 
 $ErrorActionPreference = 'Stop'
+$root = $PSScriptRoot
+if ([string]::IsNullOrEmpty($root)) { $root = Split-Path -Parent $MyInvocation.MyCommand.Path }   # $PSScriptRoot u zadanoj vrijednosti parametra nije pouzdan (Windows PowerShell 5.1)
+if ([string]::IsNullOrEmpty($DistDir)) { $DistDir = Join-Path $root '..\dist' }
 $dist = (Resolve-Path -LiteralPath $DistDir).Path
 foreach ($need in 'Auxilium-Dijagnostika-Ljuska.ps1', 'Pokreni-Auxilium-Ljuska.cmd') {
     if (-not (Test-Path -LiteralPath (Join-Path $dist $need))) { throw ('U {0} nema {1}: prvo pokrenite build.ps1.' -f $dist, $need) }
 }
-$template = [System.IO.File]::ReadAllText((Join-Path $PSScriptRoot 'Auxilium.wsb'))
+$template = [System.IO.File]::ReadAllText((Join-Path $root 'Auxilium.wsb'))
 $generated = $template.Replace('__DIST__', [System.Security.SecurityElement]::Escape($dist))
-$out = Join-Path $PSScriptRoot 'Auxilium.generated.wsb'
+$out = Join-Path $root 'Auxilium.generated.wsb'
 [System.IO.File]::WriteAllText($out, $generated, (New-Object System.Text.UTF8Encoding($false)))
 Write-Host ('Zapisano: {0}' -f $out)
 if (-not $NoLaunch) {

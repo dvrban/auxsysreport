@@ -17,11 +17,13 @@
 #>
 [CmdletBinding()]
 param(
-    [string]$Path = (Join-Path $PSScriptRoot '..\dist\Auxilium-Dijagnostika-Ljuska.ps1')
+    [string]$Path = ''
 )
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version 2
+$root = $PSScriptRoot
+if ([string]::IsNullOrEmpty($root)) { $root = Split-Path -Parent $MyInvocation.MyCommand.Path }   # $PSScriptRoot u zadanoj vrijednosti parametra nije pouzdan (Windows PowerShell 5.1)
 
 # Mjesta ubacivanja: funkcija koja ima ručni popis i korijenska naredba koja se u runspaceu poziva (AddCommand).
 $sites = @(
@@ -29,6 +31,7 @@ $sites = @(
     @{ Host = 'Get-InventoryDataAsync';   Root = 'Get-InventoryData' }
 )
 
+if ([string]::IsNullOrEmpty($Path)) { $Path = Join-Path $root '..\dist\Auxilium-Dijagnostika-Ljuska.ps1' }
 if (-not (Test-Path -LiteralPath $Path)) { throw ('Nema datoteke: {0} (prvo pokrenite build.ps1).' -f $Path) }
 $tokens = $null
 $errors = $null

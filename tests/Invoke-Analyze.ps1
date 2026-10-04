@@ -17,15 +17,22 @@
 #>
 [CmdletBinding()]
 param(
-    [string]$DistPath = (Join-Path $PSScriptRoot '..\dist\Auxilium-Dijagnostika-Ljuska.ps1'),
-    [string]$DeepPath = (Join-Path $PSScriptRoot '..\src\deep\DeepScan.ps1'),
-    [string]$Settings = (Join-Path $PSScriptRoot '..\PSScriptAnalyzerSettings.psd1'),
-    [string]$BaselinePath = (Join-Path $PSScriptRoot 'pssa-baseline.json'),
+    [string]$DistPath = '',
+    [string]$DeepPath = '',
+    [string]$Settings = '',
+    [string]$BaselinePath = '',
     [switch]$UpdateBaseline
 )
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version 2
+$root = $PSScriptRoot
+if ([string]::IsNullOrEmpty($root)) { $root = Split-Path -Parent $MyInvocation.MyCommand.Path }   # $PSScriptRoot u zadanoj vrijednosti parametra nije pouzdan (Windows PowerShell 5.1)
+
+if ([string]::IsNullOrEmpty($DistPath))     { $DistPath = Join-Path $root '..\dist\Auxilium-Dijagnostika-Ljuska.ps1' }
+if ([string]::IsNullOrEmpty($DeepPath))     { $DeepPath = Join-Path $root '..\src\deep\DeepScan.ps1' }
+if ([string]::IsNullOrEmpty($Settings))     { $Settings = Join-Path $root '..\PSScriptAnalyzerSettings.psd1' }
+if ([string]::IsNullOrEmpty($BaselinePath)) { $BaselinePath = Join-Path $root 'pssa-baseline.json' }
 
 if (-not (Get-Module -ListAvailable -Name PSScriptAnalyzer)) {
     throw 'Modul PSScriptAnalyzer nije instaliran (samo razvojno računalo): Install-Module PSScriptAnalyzer -Scope CurrentUser'

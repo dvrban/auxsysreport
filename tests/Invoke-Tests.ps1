@@ -9,9 +9,12 @@
     Povratni kod 0 = svi testovi prolaze.
 #>
 [CmdletBinding()]
-param([string]$Path = (Join-Path $PSScriptRoot 'Unit'))
+param([string]$Path = '')
 
 $ErrorActionPreference = 'Stop'
+$root = $PSScriptRoot
+if ([string]::IsNullOrEmpty($root)) { $root = Split-Path -Parent $MyInvocation.MyCommand.Path }   # $PSScriptRoot u zadanoj vrijednosti parametra nije pouzdan (Windows PowerShell 5.1)
+if ([string]::IsNullOrEmpty($Path)) { $Path = Join-Path $root 'Unit' }
 $module = Get-Module -ListAvailable -Name Pester | Where-Object { $_.Version.Major -ge 5 } | Sort-Object Version -Descending | Select-Object -First 1
 if ($null -eq $module) { throw 'Pester 5 nije instaliran: Install-Module Pester -MinimumVersion 5.0 -Scope CurrentUser -SkipPublisherCheck' }
 Import-Module $module.Path -Force
