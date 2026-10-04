@@ -112,3 +112,7 @@ Prvo pokretanje s `Auxilium-StrictMode.on` otkrilo je dvije greške (PDF izvješ
 - Prekid daje prazan plan (pozivatelj već provjerava `Test-StopRequested`); istek (60 s) je sada **greška** („Popis dnevnika događaja nije dobiven…“), a ne tiha poruka „nema dnevnika“.
 - Pester testovi s lažnim runspaceom (`LogChannelPlan.Tests.ps1`); provjera ubačenih funkcija sama je pronašla novo mjesto poziva. Ispravljen je i bug u `Test-Closure.ps1` (`HashSet` s jednim elementom se raspakirao pod strogim načinom).
 - Treba potvrditi na Windowsu: **Izvezi i obriši dnevnike** (odbiti potvrdu je dovoljno) mora pokazati popis i dalje raditi, a sučelje ostati živo tijekom popisa.
+
+### T2.7 (prvi korak): mjerenje dubokog skeniranja
+- Prije prepisivanja dijete-skripte u paralelnu (RunspacePool, ~600 redaka bez mogućnosti pokretanja na Linuxu) uvedeno je **mjerenje**: dijete-skripta bilježi kumulativno vrijeme nakon svake skupine (dnevnici, sigurnost, softver, Windows Update) i ispisuje ga u stderr kao `AUXTIMING dnevnici=…;sigurnost=…;softver=…;update=…`; roditelj (`Complete-DeepScan`) ga pretvara u trajanje po skupini i upisuje u dnevnik: `Duboko skeniranje, trajanje po skupinama: dnevnici 3.0 s, sigurnost 2.5 s, softver 4.3 s, update 4.9 s (ukupno 14.7 s)`. `Get-DeepStderrHint` preskače taj redak.
+- Svrha: ako ukupno vrijeme dominira jedna skupina (npr. pretraga Windows Updatea), paralelizacija neće dati ocjenu za ~8 s i ne isplati se riskirati; odluka o T2.7 ide na temelju stvarnih brojeva sa Windowsa. Ponašanje alata se ne mijenja.

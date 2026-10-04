@@ -1,5 +1,7 @@
 ﻿$ErrorActionPreference = 'SilentlyContinue'
 $ProgressPreference    = 'SilentlyContinue'
+$clock  = [System.Diagnostics.Stopwatch]::StartNew()   # mjerenje trajanja skupina (kumulativno, ms): ide u stderr, roditelj ga zapisuje u dnevnik
+$timing = New-Object System.Collections.Generic.List[string]
 $wuItems = New-Object System.Collections.Generic.List[object]
 $evItems = New-Object System.Collections.Generic.List[object]
 $swItems = New-Object System.Collections.Generic.List[object]
@@ -142,6 +144,7 @@ try {
     Add-Item 'Text' '' ('Dnevnici događaja nisu dostupni: ' + (Get-Clean $_.Exception.Message 120)) 'Warn'
 }
 Send-Items
+$timing.Add('dnevnici=' + $clock.ElapsedMilliseconds)
 
 # ---------------- Sigurnost: antivirus, vatrozid, šifriranje diska, SMBv1, RDP ----------------
 $global:target = $secItems
@@ -256,6 +259,7 @@ try {
 }
 $grpDone.sec = $true
 Send-Items
+$timing.Add('sigurnost=' + $clock.ElapsedMilliseconds)
 
 # ---------------- Softver: Office, mail, licence, instalirani programi ----------------
 $global:target = $swItems
@@ -506,6 +510,7 @@ Add-Item 'Text' '' 'Store/MSIX aplikacije (npr. novi Teams, WhatsApp) nisu uklju
 if ($hiddenCount -gt 0) { Add-Item 'Text' '' ('Izostavljeno {0} {1} (zakrpe, sistemske komponente, Visual C++ paketi, driver paketi).' -f $hiddenCount, (Get-HrPlural $hiddenCount 'stavka' 'stavke' 'stavki')) 'Muted' }
 $grpDone.sw = $true
 Send-Items
+$timing.Add('softver=' + $clock.ElapsedMilliseconds)
 
 # ---------------- Windows Update (pretraga može biti spora ili zapeti) ----------------
 $global:target = $wuItems
@@ -596,3 +601,5 @@ try {
 }
 $grpDone.wu = $true
 Send-Items
+$timing.Add('update=' + $clock.ElapsedMilliseconds)
+[Console]::Error.WriteLine('AUXTIMING ' + ($timing.ToArray() -join ';'))
