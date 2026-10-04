@@ -934,6 +934,7 @@ function Get-InventoryDataAsync {
             Start-Sleep -Milliseconds 25
         }
         $output = @($ps.EndInvoke($async))
+        foreach ($streamError in $ps.Streams.Error) { Write-AppLog 'Warn' 'Prikupljanje inventara (runspace)' $streamError }
         $data = $null
         foreach ($item in $output) {
             if ($item -is [System.Collections.IDictionary]) { $data = $item }

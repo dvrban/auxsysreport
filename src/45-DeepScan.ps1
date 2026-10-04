@@ -285,6 +285,7 @@ function Update-DeepScan {
             Stop-DeepScanTimeout -Why ('isteklo vrijeme ({0} s)' -f $d.TimeoutSec)
         }
     } catch {
+        Write-AppLog 'Error' 'Duboko skeniranje (Update-DeepScan)' $_
         Stop-DeepScan
         $d.State = 'Failed'
         $d.Error = $_.Exception.Message

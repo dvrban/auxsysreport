@@ -458,6 +458,7 @@ function Get-SystemInfoItemsAsync {
             Start-Sleep -Milliseconds 25
         }
         $output = $ps.EndInvoke($async)
+        foreach ($streamError in $ps.Streams.Error) { Write-AppLog 'Warn' 'Prikupljanje podataka o sustavu (runspace)' $streamError }
         return ,@($output)
     } finally {
         if (-not $abandoned) {

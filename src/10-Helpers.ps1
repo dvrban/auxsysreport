@@ -207,5 +207,44 @@ function Resolve-SystemTool {
     }
     return (Join-Path $dir $Name)
 }
+# --- Dnevnik na stiku (T1.5): <stick>\Dnevnik\Auxilium_<datum>.log, zadnjih 10 datoteka, bez osobnih podataka.
+# Format-AppLogLine je čista funkcija (testira se Pesterom); Write-AppLog radi samo I/O.
+# Pozivati se smije samo s UI niti: koristi $script: varijable pa ga funkcije ubačene u runspace ne smiju zvati (provjerava Test-Closure.ps1).
+function Format-AppLogLine {
+    param([string]$Level, [AllowEmptyString()][string]$Message, $Err = $null, [AllowNull()][string]$UserProfile = $null, [datetime]$Now = [datetime]::Now)
+    $line = '{0} [{1,-5}] {2}' -f $Now.ToString('HH:mm:ss.fff', [System.Globalization.CultureInfo]::InvariantCulture), $Level.ToUpperInvariant(), $Message
+    if ($null -ne $Err) {
+        $ex = $Err
+        $stack = ''
+        if ($Err -is [System.Management.Automation.ErrorRecord]) {
+            $ex = $Err.Exception
+            $stack = [string]$Err.ScriptStackTrace
+        }
+        $line += ' | ' + $ex.GetType().Name + ': ' + $ex.Message
+        if ($stack) { $line += ' @ ' + (($stack -split "`r?`n")[0]) }
+    }
+    if (-not [string]::IsNullOrEmpty($UserProfile)) { $line = $line.Replace($UserProfile, '%USERPROFILE%') }
+    $line = [regex]::Replace($line, '(?i)[A-Za-z]:\\Users\\[^\\\s''"]+', '%USERPROFILE%')   # i profili drugih korisnika
+    return ($line -replace '\s*\r?\n\s*', ' ')
+}
+
+function Write-AppLog {
+    param([ValidateSet('Debug', 'Info', 'Warn', 'Error')][string]$Level, [AllowEmptyString()][string]$Message, $Err = $null)
+    if ($script:LogFailed -or [string]::IsNullOrEmpty($script:AppRoot)) { return }
+    try {
+        if (-not $script:LogPath) {
+            $dir = [System.IO.Path]::Combine($script:AppRoot, 'Dnevnik')
+            if (-not [System.IO.Directory]::Exists($dir)) { [void][System.IO.Directory]::CreateDirectory($dir) }
+            $old = @([System.IO.Directory]::GetFiles($dir, 'Auxilium_*.log'))
+            [Array]::Sort($old, [System.StringComparer]::Ordinal)
+            for ($i = 0; $i -lt ($old.Count - 9); $i++) { try { [System.IO.File]::Delete($old[$i]) } catch { Write-Verbose ('Dnevnik: ' + $_.Exception.Message) } }
+            $script:LogPath = [System.IO.Path]::Combine($dir, ('Auxilium_{0}.log' -f [datetime]::Now.ToString('yyyyMMdd', [System.Globalization.CultureInfo]::InvariantCulture)))
+        }
+        $text = (Format-AppLogLine $Level $Message $Err $env:USERPROFILE) + [Environment]::NewLine
+        [System.IO.File]::AppendAllText($script:LogPath, $text, (New-Object System.Text.UTF8Encoding($false)))
+    } catch {
+        $script:LogFailed = $true   # stick zaštićen ili izvučen: dnevnik ne smije srušiti alat ni usporavati svaki poziv
+    }
+}
 #endregion HELPERS
 

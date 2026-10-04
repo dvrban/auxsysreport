@@ -4,6 +4,7 @@ function Write-Terminal {
         [AllowEmptyString()][string]$Text = '',
         [ValidateSet('Normal', 'Header', 'Info', 'Ok', 'Warn', 'Error')][string]$Level = 'Normal'
     )
+    if ($Level -eq 'Warn' -or $Level -eq 'Error') { Write-AppLog $Level $Text }   # upozorenja i greške ostaju i nakon zatvaranja alata
     try {
         $rtb = $script:UI.Terminal
         if ($null -ne $rtb -and -not $rtb.IsDisposed) {
@@ -157,6 +158,7 @@ function Start-GuiTask {
         & $Command
         if ($script:CancelRequested) { Write-Terminal 'Zadatak je prekinut.' 'Warn' }
     } catch {
+        Write-AppLog 'Debug' ('Zadatak ''{0}'': {1}' -f $Title, ([string]$_.ScriptStackTrace -split "`r?`n")[0])
         Write-Terminal ('GREŠKA: {0}' -f $_.Exception.Message) 'Error'
     } finally {
         if ($started) {

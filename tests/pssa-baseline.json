@@ -135,7 +135,7 @@
     },
     {
       "key": "Ljuska | PSAvoidUsingEmptyCatchBlock | New-MainForm | Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
-      "count": 10
+      "count": 8
     },
     {
       "key": "Ljuska | PSAvoidUsingEmptyCatchBlock | Remove-AppResources | Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",

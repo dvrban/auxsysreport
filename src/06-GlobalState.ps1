@@ -20,6 +20,8 @@ $script:LastProcessOutput = New-Object System.Collections.Generic.List[string]
 $script:LineBatch         = New-Object System.Collections.Generic.List[string]
 $script:KeepDirs          = $null
 $script:AppRoot           = ''
+$script:LogPath           = ''      # dnevnik na stiku (Write-AppLog); LogFailed = zapis nije moguć, više se ne pokušava
+$script:LogFailed         = $false
 $script:SettingsPath      = ''
 $script:SettingsWarned    = $false
 $script:SettingsLoadError = ''

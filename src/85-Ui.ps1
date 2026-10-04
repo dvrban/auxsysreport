@@ -450,7 +450,8 @@ function New-MainForm {
 
     [System.Windows.Forms.Application]::add_ThreadException([System.Threading.ThreadExceptionEventHandler]{
         param($sender, $e)
-        try { Write-Terminal ('NEOČEKIVANA GREŠKA: {0}' -f $e.Exception.Message) 'Error' } catch { }
+        try { Write-AppLog 'Debug' ('UI nit: ' + $e.Exception.GetType().FullName + ' @ ' + (([string]$e.Exception.StackTrace -split "`r?`n")[0])) } catch { $script:LogFailed = $true }
+        try { Write-Terminal ('NEOČEKIVANA GREŠKA: {0}' -f $e.Exception.Message) 'Error' } catch { $script:LogFailed = $true }
     })
 
     $form = New-Object System.Windows.Forms.Form
@@ -719,6 +720,7 @@ function New-MainForm {
         if ($script:IsAdmin) { $adminText = 'administrator' }
         Write-Terminal ('Auxilium Informatika - Dijagnostika i čišćenje sustava v{0}' -f $script:AppVersion) 'Header'
         Write-Terminal ('Računalo: {0} | Korisnik: {1} | Prava: {2}' -f $env:COMPUTERNAME, [Environment]::UserName, $adminText) 'Info'
+        Write-AppLog 'Info' ('Pokrenuto: v{0}, prava: {1}' -f $script:AppVersion, $adminText)
         try {
             # Ako je UAC podignut drugim računom, Temp i koš koji se čiste pripadaju tom računu, a ne prijavljenom korisniku.
             $consoleUser = Get-ConsoleUser
@@ -726,7 +728,7 @@ function New-MainForm {
             if (-not [string]::IsNullOrWhiteSpace($consoleUser) -and $consoleUser -ne $me) {
                 Write-Terminal ('Upozorenje: alat radi kao {0}, a prijavljen je {1}. Čišćenje se odnosi na Temp i koš računa {0}, ne računa {1}.' -f $me, $consoleUser) 'Warn'
             }
-        } catch { }
+        } catch { Write-AppLog 'Debug' 'Provjera prijavljenog korisnika' $_ }
 
         Write-Terminal ('Alat se pokreće iz: {0}  [{1}]' -f $script:AppRoot, (Get-DriveKind $script:AppRoot)) 'Info'
         if ($script:SettingsLoadError) { Write-Terminal ('Postavke nisu učitane (koriste se zadane): {0}' -f $script:SettingsLoadError) 'Warn' }
