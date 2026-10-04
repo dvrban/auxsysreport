@@ -1,4 +1,7 @@
 ﻿# Regresijski testovi za popravke iz Faze 1: statičke provjere izvora (AST/tekst), jer se UI i WMI ne mogu pokrenuti bez Windowsa.
+# -Skip se računa u fazi otkrivanja: pomoćne funkcije moraju biti učitane na vrhu datoteke
+. (Join-Path $PSScriptRoot 'TestHelpers.ps1')
+
 BeforeAll {
     . (Join-Path $PSScriptRoot 'TestHelpers.ps1')
     function Get-AuxAst {
@@ -145,5 +148,44 @@ Describe 'Treptanje panela statusa: iscrtavanje se isključuje tijekom gradnje' 
         $cs = [System.IO.File]::ReadAllText((Join-Path $script:AuxSrcRoot 'native\Native.cs'))
         $cs | Should -Match 'public static void SetRedraw\(IntPtr handle, bool enable\)'
         $cs | Should -Match '0x000B'
+    }
+}
+
+Describe 'Set-LiveRow ne prepisuje redak kad se prikaz nije promijenio' {
+    BeforeAll {
+        . ([scriptblock]::Create((Get-AuxFunctionText 'Set-LiveRow', 'Get-StatusColor')))
+        # lažna kontrola: broji koliko je puta redak prepisan
+        $script:rewrites = 0
+        $script:fakeRtb = [pscustomobject]@{ SelectionStart = 0; SelectionLength = 0; Handle = [IntPtr]::Zero; ClientSize = [pscustomobject]@{ Width = 300 }; SelectionColor = $null }
+        $script:fakeRtb | Add-Member -MemberType ScriptMethod -Name Select -Value { param($a, $b) }
+        $script:fakeRtb | Add-Member -MemberType ScriptMethod -Name Invalidate -Value { param($r) }
+        $script:fakeRtb | Add-Member -MemberType ScriptMethod -Name GetPositionFromCharIndex -Value { param($i) [pscustomobject]@{ Y = 10 } }
+        $script:fakeRtb | Add-Member -MemberType ScriptProperty -Name SelectedText -Value { '' } -SecondValue { param($v) $script:rewrites++ }
+        Initialize-NativeStub
+        function Get-StatusColor { param($s) return 0 }
+    }
+    BeforeEach {
+        $script:rewrites = 0
+        $script:UI = @{ Status = $script:fakeRtb }
+        $bar = ([string][char]0x2588) * 0 + ([string][char]0x2591) * 16 + ' ' + ('{0,3:N0} %' -f 0)
+        $item = [pscustomobject]@{ Percent = -1; Value = ''; Status = '' }
+        $script:LiveRows = @{ CPU = @{ Start = 0; Length = $bar.Length; Item = $item } }
+    }
+    It 'ista vrijednost drugi put: bez ponovnog prepisivanja, ali stavka za PDF ostaje osvježena' {
+        Set-LiveRow 'CPU' 0 'Good' '0 % opterećenje'
+        Set-LiveRow 'CPU' 0 'Good' '0 % opterećenje (novo)'
+        $script:rewrites | Should -Be 1
+        $script:LiveRows['CPU'].Item.Value | Should -Be '0 % opterećenje (novo)'
+    }
+    It 'promjena postotka: ponovno prepisivanje' {
+        Set-LiveRow 'CPU' 0 'Good' 'a'
+        Set-LiveRow 'CPU' 50 'Good' 'b'
+        $script:rewrites | Should -Be 2
+    }
+    It 'izvor: Set-LiveRow usporeduje potpis prije prepisivanja i ne zove Invalidate() na cijeloj kontroli u glavnom putu' {
+        $text = (Get-AuxAst 'Set-LiveRow').Extent.Text
+        $text | Should -Match 'Signature'
+        $text.IndexOf('Signature -ceq') | Should -BeLessThan $text.IndexOf('SetRedraw($rtb.Handle, $false)')
+        $text | Should -Match 'New-Object System\.Drawing\.Rectangle'
     }
 }

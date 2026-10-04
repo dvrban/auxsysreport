@@ -25,3 +25,20 @@ function Get-AuxFunctionText {
 function Test-IsWindowsPlatform {
     return ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT)
 }
+
+# Zajednička zamjena za C# klasu Auxilium.NativeMethods (prava treba Windows i WinForms). Tip se u sesiji može definirati samo jednom,
+# pa ga svi testovi dobivaju odavde. Rezultat GetConsoleUserName zadaje se poljem Next ([NullString]::Value = poziv nije uspio).
+function Initialize-NativeStub {
+    if ('Auxilium.NativeMethods' -as [type]) { return }
+    Add-Type -TypeDefinition @'
+namespace Auxilium {
+    public static class NativeMethods {
+        public static string Next;
+        public static string GetConsoleUserName() { return Next; }
+        public static int GetFirstVisibleLine(System.IntPtr h) { return 0; }
+        public static void ScrollToFirstVisibleLine(System.IntPtr h, int l) { }
+        public static void SetRedraw(System.IntPtr h, bool e) { }
+    }
+}
+'@
+}

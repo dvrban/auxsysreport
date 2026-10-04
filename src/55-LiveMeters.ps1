@@ -10,6 +10,15 @@ function Set-LiveRow {
     $filled = [int][Math]::Round($pct / 100 * 16)
     $bar = (([string][char]0x2588) * $filled) + (([string][char]0x2591) * (16 - $filled)) + ' ' + ('{0,3:N0} %' -f $pct)
     if ($bar.Length -ne $row.Length) { return }
+    # Prepisivanje retka uzrokuje treptanje panela: radi se samo kad se prikaz stvarno promijenio (postotak ili boja), a ne pri svakom otkucaju tajmera.
+    $signature = $bar + '|' + $Status
+    if ($row.Signature -ceq $signature) {
+        $row.Item.Percent = $pct
+        $row.Item.Value   = $Text
+        $row.Item.Status  = $Status
+        return
+    }
+    $row.Signature = $signature
     $selStart = $rtb.SelectionStart
     $selLen   = $rtb.SelectionLength
     $firstLine = 0
@@ -24,8 +33,12 @@ function Set-LiveRow {
         try { [Auxilium.NativeMethods]::ScrollToFirstVisibleLine($rtb.Handle, $firstLine) } catch { }
     } finally {
         [Auxilium.NativeMethods]::SetRedraw($rtb.Handle, $true)
-        $rtb.Invalidate()
     }
+    # Ponovno se iscrtava samo pojas retka s barom, ne cijela kolona.
+    try {
+        $pt = $rtb.GetPositionFromCharIndex($row.Start)
+        $rtb.Invalidate((New-Object System.Drawing.Rectangle(0, [Math]::Max(0, $pt.Y - 4), $rtb.ClientSize.Width, 32)))
+    } catch { $rtb.Invalidate() }
     # Stavke u $script:SysInfo su iste kao prikazane: PDF izvještaj tako dobiva najnovije vrijednosti.
     $row.Item.Percent = $pct
     $row.Item.Value   = $Text

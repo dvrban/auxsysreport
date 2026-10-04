@@ -1,10 +1,7 @@
 ﻿BeforeAll {
     . (Join-Path $PSScriptRoot 'TestHelpers.ps1')
     . ([scriptblock]::Create((Get-AuxFunctionText 'Get-ConsoleUser', 'Write-AppLog', 'Format-AppLogLine')))
-    # Zamjena za pravu C# klasu (koja treba Windows): rezultat se zadaje statičkim poljem
-    if (-not ('Auxilium.NativeMethods' -as [type])) {
-        Add-Type -TypeDefinition 'namespace Auxilium { public static class NativeMethods { public static string Next; public static string GetConsoleUserName() { return Next; } } }'
-    }
+    Initialize-NativeStub
     $script:AppRoot = ''
     function Get-CimInstance {
         [CmdletBinding()] param($ClassName, $OperationTimeoutSec)   # -ErrorAction dolazi iz [CmdletBinding()]
