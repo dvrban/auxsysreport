@@ -210,18 +210,14 @@ Describe 'Trijaža praznih catch blokova (T1.5)' {
     }
 }
 
-Describe 'T1.6 dijagnostički StrictMode' {
-    It 'GLOBAL STATE uključuje Set-StrictMode -Version 2 samo uz datoteku Auxilium-StrictMode.on, u opsegu skripte' {
+Describe 'T1.6 strogi način je zadan (isključuje se datotekom .off)' {
+    It 'GLOBAL STATE uključuje Set-StrictMode -Version 2 osim uz datoteku Auxilium-StrictMode.off, u opsegu skripte' {
         $gs = [System.IO.File]::ReadAllText((Join-Path $script:AuxSrcRoot '06-GlobalState.ps1'))
-        $gs | Should -Match 'File\]::Exists\(\[System\.IO\.Path\]::Combine\(\$PSScriptRoot, ''Auxilium-StrictMode\.on''\)\)'
-        $gs | Should -Match 'Set-StrictMode -Version 2'
-        # nije unutar funkcije (Set-StrictMode u funkciji vrijedi samo u njezinu opsegu)
+        $gs | Should -Match 'File\]::Exists\(\[System\.IO\.Path\]::Combine\(\$PSScriptRoot, ''Auxilium-StrictMode\.off''\)\)'
+        $gs | Should -Match 'if \(-not \$strictOff\) \{\s*Set-StrictMode -Version 2'
         $tokens = $null; $errors = $null
         $ast = [System.Management.Automation.Language.Parser]::ParseInput($gs, [ref]$tokens, [ref]$errors)
         @($ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true)).Count | Should -Be 0
-    }
-    It 'bez datoteke StrictMode nije uključen (zadano)' {
-        $script:StrictMode | Should -Not -BeTrue
     }
 }
 
