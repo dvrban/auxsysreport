@@ -4,3 +4,4 @@ src/** -text whitespace=cr-at-eol
 tests/** -text whitespace=cr-at-eol
 v4/** -text
 /PROMJENE.md -text whitespace=cr-at-eol
+test/** -text

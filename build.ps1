@@ -21,6 +21,9 @@
 .PARAMETER SkipClosureCheck
     Preskače tests\Test-Closure.ps1 (AST provjera popisa funkcija ubačenih u runspaceove; zadano se pokreće i ruši build).
 
+.PARAMETER SkipTests
+    Preskače Pester testove (tests\Invoke-Tests.ps1; pokreću se ako je instaliran Pester 5, inače upozorenje).
+
 .PARAMETER RequireAnalyzer
     Ako PSScriptAnalyzer nije instaliran, build pada umjesto da upozori i preskoči analizu.
 
@@ -34,6 +37,7 @@ param(
     [string]$OutputDir = (Join-Path $PSScriptRoot 'dist'),
     [switch]$SkipAnalyze,
     [switch]$SkipClosureCheck,
+    [switch]$SkipTests,
     [switch]$RequireAnalyzer
 )
 
@@ -129,7 +133,15 @@ try {
 
 $manifest = New-Object System.Text.StringBuilder
 [void]$manifest.Append(('{0}  {1}' -f $hash, $outName) + "`r`n")
+# Pokretač (.cmd) uz skriptu: bajt-kopija iz src\launcher\ (ne ulazi u sastavljanje, nego se samo kopira)
+$launcherName = 'Pokreni-Auxilium-Ljuska.cmd'
+$launcherBytes = [System.IO.File]::ReadAllBytes((Join-Path $srcRoot ('launcher\' + $launcherName)))
+[System.IO.File]::WriteAllBytes((Join-Path $OutputDir $launcherName), $launcherBytes)
+$sha2 = [System.Security.Cryptography.SHA256]::Create()
+try { $launcherHash = [BitConverter]::ToString($sha2.ComputeHash($launcherBytes)).Replace('-', '') } finally { $sha2.Dispose() }
+[void]$manifest.Append(('{0}  {1}' -f $launcherHash, $launcherName) + "`r`n")
 if ($commit) { [void]$manifest.Append(('# git {0}' -f $commit) + "`r`n") }
+
 [System.IO.File]::WriteAllText((Join-Path $OutputDir 'MANIFEST.txt'), $manifest.ToString(), (New-Object System.Text.ASCIIEncoding))
 
 Write-Host ('Sastavljeno: {0}' -f $outPath)
@@ -142,7 +154,19 @@ if (-not $SkipClosureCheck) {
     if ($LASTEXITCODE -ne 0) { throw 'Zatvaranje ovisnosti ubačenih funkcija nije u redu (vidi iznad).' }
 }
 
-# --- 7. PSScriptAnalyzer (T0.3): novi nalazi u odnosu na baseline ruše build
+# --- 7. Pester (T0.5)
+if (-not $SkipTests) {
+    $pesterOk = Get-Module -ListAvailable -Name Pester | Where-Object { $_.Version.Major -ge 5 } | Select-Object -First 1
+    if ($pesterOk) {
+        $testHost = (Get-Process -Id $PID).Path
+        & $testHost -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'tests\Invoke-Tests.ps1')
+        if ($LASTEXITCODE -ne 0) { throw 'Pester testovi ne prolaze (vidi iznad).' }
+    } else {
+        Write-Warning 'Pester 5 nije instaliran: testovi su preskočeni (Install-Module Pester -MinimumVersion 5.0 -Scope CurrentUser).'
+    }
+}
+
+# --- 8. PSScriptAnalyzer (T0.3): novi nalazi u odnosu na baseline ruše build
 if (-not $SkipAnalyze) {
     if (Get-Module -ListAvailable -Name PSScriptAnalyzer) {
         $analyzeArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $PSScriptRoot 'tests\Invoke-Analyze.ps1'), '-DistPath', $outPath)

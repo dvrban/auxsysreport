@@ -29,3 +29,14 @@ Ovdje se bilježi neobjavljeni rad prema izdanju v5 (Faza 0 „Temelji“ iz izv
 - Pokreće se iz `build.ps1` (`-SkipClosureCheck` preskače). Nova pomoćna funkcija u `Get-SystemInfoItems` sada ruši build, a ne runtime.
 - Odstupanje od izvještaja: runtime kod i dalje koristi ručne popise (zamjena automatskim `Get-FunctionClosure` ide u T2.1 uz `Invoke-BackgroundRunspace`; bez Windowsa je ne mogu isprobati). Provjera parsiranja dijete-skripte već je u `build.ps1` (T0.2). Provjera neinicijaliziranih `$script:` varijabli nije napravljena.
 - Upozorenje za T1.5: `Write-AppLog` koristi `$script:`, pa ga ubačene funkcije ne smiju zvati; ova provjera će to uhvatiti.
+
+### T0.5 – Pester temelj
+- `tests\Invoke-Tests.ps1` pokreće Pester 5 testove iz `tests\Unit\` (22 testa, 3 preskočena na Linuxu): `Format-Bytes`, `ConvertTo-SafeName`, `ConvertFrom-DeepBytes` (uključujući `-Killed` i prazan ulaz), `New-InfoItem`, `Get-HealthLevel`, `Get-HealthResult` i `Get-TempFolderTargets` (samo Windows).
+- Testovi ne dot-sourceaju cijele dijelove (`04-Elevation` i `90-Main` pokreću UAC i prozor), nego `tests\Unit\TestHelpers.ps1` AST-om izdvaja samo tražene funkcije iz `src\`. Ne trebaju build.
+- Zlatni skupovi za `Get-HealthResult` izračunati su **ručno** iz pravila v0.04 (npr. antivirus + vatrozid + 12 ažuriranja = 38 / LOŠE), a ne snimljeni sa stvarnih računala: snimanje fixturea (`Export-Clixml`) traži Windows i ostaje za T2.8/T2.9.
+- `build.ps1` pokreće testove ako je instaliran Pester 5 (`-SkipTests`). Windows PowerShell 5.1 ima ugrađen Pester 3: `Install-Module Pester -MinimumVersion 5.0 -Scope CurrentUser -SkipPublisherCheck`.
+
+### T0.6 – Windows Sandbox
+- `test\Start-Sandbox.ps1` iz predloška `test\Auxilium.wsb` izrađuje `Auxilium.generated.wsb` s punom putanjom `dist\` (nije u gitu) i pokreće Sandbox; `test\README.md` ima kontrolnu listu (UAC, EN jezik, bez Officea, PDF, prekid, izlaz).
+- `build.ps1` sada u `dist\` kopira i pokretač `Pokreni-Auxilium-Ljuska.cmd` (bajt-kopija iz `src\launcher\`) i upisuje ga u `MANIFEST.txt`.
+- Ručni pregled u Sandboxu **nije izvršen** (nema Windowsa); kriterij „alat se podigne na admina i napravi PDF“ ostaje za provjeru na Windowsu.
