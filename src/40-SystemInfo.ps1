@@ -417,18 +417,25 @@ function Show-SystemInfo {
     try { Update-HealthTile $Items } catch { Write-AppLog 'Debug' 'Update-HealthTile' $_ }
 }
 
-# Prikupljanje podataka (CIM/Storage upiti) izvodi se u zasebnom runspaceu, a sučelje se pumpa dok se čeka.
-# Vraća polje stavki, ili $null ako je prekinuto / isteklo vrijeme.
-function Get-SystemInfoItemsAsync {
-    param([bool]$HonorCancel = $true, [int]$TimeoutSeconds = 60)
-
-    $names     = @('New-InfoItem', 'Get-HealthLevel', 'Format-Bytes', 'ConvertTo-HrHealth', 'Get-SystemInfoItems')
+# Pokreće naredbu u zasebnom runspaceu u istom procesu, a sučelje se pumpa dok se čeka (T2.1). Zajednički kostur za sva pozadinska prikupljanja.
+# Runspace ne vidi funkcije ove skripte: -Functions su imena funkcija koje se ubacuju (cijelo zatvaranje poziva korijenske naredbe; popis provjerava
+# tests\Test-Closure.ps1 pri buildu). Ubačene funkcije ne smiju koristiti $script: ni dirati kontrole. Pozadinska nit nikad ne dira sučelje.
+# Rezultat: State = 'Completed' (Output = izlaz naredbe), 'Cancelled' (prekid korisnika / zatvaranje) ili 'TimedOut' (istek). Pri prekidu i isteku runspace se
+# NAPUŠTA (zapeti WMI/CIM poziv se ne može prekinuti; proces se na kraju završava silom, vidi MAIN): pozivatelj tada čita što je njegov sink već prikupio.
+function Invoke-BackgroundRunspace {
+    param(
+        [Parameter(Mandatory)][string[]]$Functions,
+        [Parameter(Mandatory)][string]$Command,
+        [hashtable]$Parameters = @{},
+        [int]$TimeoutSeconds = 60,
+        [bool]$HonorCancel = $true
+    )
     $rs        = $null
     $ps        = $null
     $abandoned = $false
     try {
         $iss = [System.Management.Automation.Runspaces.InitialSessionState]::CreateDefault()
-        foreach ($name in $names) {
+        foreach ($name in $Functions) {
             $body = (Get-Item -LiteralPath ('function:' + $name)).ScriptBlock.ToString()
             $iss.Commands.Add((New-Object System.Management.Automation.Runspaces.SessionStateFunctionEntry($name, $body)))
         }
@@ -436,43 +443,57 @@ function Get-SystemInfoItemsAsync {
         $rs.Open()
         $ps = [System.Management.Automation.PowerShell]::Create()
         $ps.Runspace = $rs
-        # Popis (List, ne ArrayList: njegov Add vraća indeks i zagadio bi izlaz) u koji funkcija odmah upisuje stavke: ako upit zapne,
-        # sve što je do tada prikupljeno ostaje dostupno. Prijavljeni korisnik prosljeđuje se kao parametar (runspace nema vlastitu predmemoriju).
-        # BlockingCollection: Add i ToArray su sigurni među nitima (obični List bi pri isteku vremena, dok runspace još piše, mogao baciti iznimku u ToArray).
-        $sink = New-Object 'System.Collections.Concurrent.BlockingCollection[object]'
-        [void]$ps.AddCommand('Get-SystemInfoItems').AddParameter('Sink', $sink).AddParameter('ConsoleUser', [string](Get-ConsoleUser))
+        [void]$ps.AddCommand($Command)
+        foreach ($key in $Parameters.Keys) { [void]$ps.AddParameter([string]$key, $Parameters[$key]) }
         $async = $ps.BeginInvoke()
 
         $watch = [System.Diagnostics.Stopwatch]::StartNew()
         while (-not $async.IsCompleted) {
-            $stop = ($script:Closing -or ($HonorCancel -and $script:CancelRequested))
+            $stop = $script:Closing
+            if ($HonorCancel) { $stop = Test-StopRequested }
             if ($stop -or $watch.Elapsed.TotalSeconds -gt $TimeoutSeconds) {
                 $abandoned = $true
                 $script:AbandonedRunspace = $true
                 try { [void]$ps.BeginStop($null, $null) } catch { <# namjerno: zaustavljanje napuštenog runspacea: zapeti WMI poziv se ionako ne može prekinuti #> }
-                if (-not $stop) {
-                    Write-Terminal 'Prikupljanje podataka o sustavu je isteklo (WMI/CIM ne odgovara).' 'Warn'
-                    $partial = @()
-                    try { $partial = @($sink.ToArray()) } catch { Write-AppLog 'Debug' 'Get-SystemInfoItemsAsync: sink.ToArray()' $_ }
-                    if ($partial.Count -gt 0) {
-                        $partial += (New-InfoItem 'Text' '' 'Prikupljanje je isteklo: prikazani su samo podaci prikupljeni do tada (WMI/CIM ne odgovara).' 'Warn')
-                        return ,$partial
-                    }
-                }
-                return $null
+                $state = 'TimedOut'
+                if ($stop) { $state = 'Cancelled' }
+                return [pscustomobject]@{ State = $state; Output = @() }
             }
             Update-Ui
             Start-Sleep -Milliseconds 25
         }
-        $output = $ps.EndInvoke($async)
-        foreach ($streamError in $ps.Streams.Error) { Write-AppLog 'Warn' 'Prikupljanje podataka o sustavu (runspace)' $streamError }
-        return ,@($output)
+        $output = @($ps.EndInvoke($async))
+        foreach ($streamError in $ps.Streams.Error) { Write-AppLog 'Warn' ('Pozadinski runspace: ' + $Command) $streamError }
+        return [pscustomobject]@{ State = 'Completed'; Output = $output }
     } finally {
         if (-not $abandoned) {
             try { if ($null -ne $ps) { $ps.Dispose() } } catch { <# namjerno: oslobađanje resursa: greška pri zatvaranju nije bitna #> }
             try { if ($null -ne $rs) { $rs.Dispose() } } catch { <# namjerno: oslobađanje resursa: greška pri zatvaranju nije bitna #> }
         }
     }
+}
+
+# Prikupljanje podataka (CIM/Storage upiti) izvodi se u zasebnom runspaceu, a sučelje se pumpa dok se čeka.
+# Vraća polje stavki, ili $null ako je prekinuto / isteklo vrijeme.
+function Get-SystemInfoItemsAsync {
+    param([bool]$HonorCancel = $true, [int]$TimeoutSeconds = 60)
+
+    # BlockingCollection: Add i ToArray su sigurni među nitima (obični List bi pri isteku vremena, dok runspace još piše, mogao baciti iznimku u ToArray).
+    # Funkcija piše stavke odmah u sink: ako upit zapne, sve prikupljeno do tada ostaje dostupno.
+    $sink = New-Object 'System.Collections.Concurrent.BlockingCollection[object]'
+    $run = Invoke-BackgroundRunspace -Functions @('New-InfoItem', 'Get-HealthLevel', 'Format-Bytes', 'ConvertTo-HrHealth', 'Get-SystemInfoItems') `
+        -Command 'Get-SystemInfoItems' -Parameters @{ Sink = $sink; ConsoleUser = [string](Get-ConsoleUser) } -TimeoutSeconds $TimeoutSeconds -HonorCancel $HonorCancel
+    if ($run.State -eq 'Completed') { return ,@($run.Output) }
+    if ($run.State -eq 'TimedOut') {
+        Write-Terminal 'Prikupljanje podataka o sustavu je isteklo (WMI/CIM ne odgovara).' 'Warn'
+        $partial = @()
+        try { $partial = @($sink.ToArray()) } catch { Write-AppLog 'Debug' 'Get-SystemInfoItemsAsync: sink.ToArray()' $_ }
+        if ($partial.Count -gt 0) {
+            $partial += (New-InfoItem 'Text' '' 'Prikupljanje je isteklo: prikazani su samo podaci prikupljeni do tada (WMI/CIM ne odgovara).' 'Warn')
+            return ,$partial
+        }
+    }
+    return $null
 }
 
 function Update-SystemStatus {

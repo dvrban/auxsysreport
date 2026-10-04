@@ -96,3 +96,13 @@ Prvo pokretanje s `Auxilium-StrictMode.on` otkrilo je dvije greške (PDF izvješ
 - Na Windowsu su pod `Set-StrictMode -Version 2` prošle sve radnje osim punog izvršavanja SFC/DISM/CHKDSK (provjereni su samo start i prekid): ocjena, PDF, JSON, test mreže, duboko čišćenje, izvoz i brisanje dnevnika. Dnevnik je bez `ERROR`/`DEBUG` redaka.
 - Zato je strogi način **uključen po zadanom**; isključuje se praznom datotekom **`Auxilium-StrictMode.off`** uz skriptu (datoteka `.on` iz dijagnostičkog razdoblja više nije potrebna). Greške strogog načina radnja ispisuje u terminal i dnevnik, a ostatak alata radi dalje (svaka radnja ima `try/catch` u `Start-GuiTask`).
 - Preostali rizik: nepokrenuti putovi (puni SFC/DISM/CHKDSK, rijetke grane) mogu otkriti nove greške; to se vidi kao `GREŠKA:` u terminalu i redak u dnevniku, a privremeno se zaobilazi datotekom `.off`.
+
+## Faza 2 – Asinkroni rad
+
+### T2.1 – `Invoke-BackgroundRunspace`
+- Zajednički kostur pozadinskog runspacea (stvaranje, ubacivanje funkcija, petlja s pumpanjem sučelja, prekid/istek, čišćenje) izvučen je iz `Get-SystemInfoItemsAsync` i `Get-InventoryDataAsync` u jednu funkciju `Invoke-BackgroundRunspace` (`40-SystemInfo.ps1`). Vraća `State` = `Completed` / `Cancelled` / `TimedOut` i `Output`; pri prekidu i isteku runspace se i dalje napušta (zapeti WMI poziv se ne može prekinuti), a pozivatelj čita svoj sink. Pozivatelji su sada ~15 redaka: sink i obrada djelomičnog rezultata ostaju kod njih.
+- Ponašanje je isto kao prije (isti `InitialSessionState.CreateDefault()`, isti ishodi). Jedina razlika: pogreške iz runspacea (`$ps.Streams.Error`) idu u dnevnik za oba poziva.
+- `tests\Test-Closure.ps1` više ne koristi fiksan popis mjesta: iz AST-a pronalazi svaki poziv `Invoke-BackgroundRunspace` i provjerava njegov `-Functions` prema zatvaranju poziva `-Command`.
+- Pester testovi `BackgroundRunspace.Tests.ps1` pokreću pravi runspace (i na Linuxu): rezultat i parametri, istek vremena (sink zadržava prikupljeno), prekid korisnika, `-HonorCancel`, greške u dnevniku, nedostajuća ubačena funkcija.
+- Nije napravljeno iz nacrta 4.1: red poruka za napredak (`ConcurrentQueue`), automatsko zatvaranje ovisnosti u runtimeu (`Get-FunctionClosure`; provjera ostaje pri buildu) i `CreateDefault2()` (brži start, ali se ne može isprobati bez Windowsa).
+- PSSA baseline: 3 prazna `catch` preseljena u novu funkciju, a 6 nalaza manje u starim (neto −3).

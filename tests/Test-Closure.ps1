@@ -4,7 +4,7 @@
     T0.4 - AST provjera ručnih popisa funkcija koje se ubacuju u pozadinske runspaceove.
 
 .DESCRIPTION
-    Runspace ne vidi funkcije roditeljske skripte: Get-SystemInfoItemsAsync i Get-InventoryDataAsync ih ubacuju po imenu iz ručnog popisa.
+    Runspace ne vidi funkcije roditeljske skripte: svaki poziv Invoke-BackgroundRunspace ubacuje funkcije po imenu iz popisa -Functions.
     Nova pomoćna funkcija koju neka ubačena funkcija pozove, a nije na popisu, puca tek u runspaceu ("nije prepoznat kao naziv cmdleta"),
     zakopana iza praznog catch. Ova provjera iz AST-a sastavljene skripte izračuna potpuno zatvaranje ovisnosti od korijenske funkcije i:
       * pada ako zatvaranje sadrži funkciju koje nema na ručnom popisu (nedostaje u runspaceu),
@@ -25,11 +25,7 @@ Set-StrictMode -Version 2
 $root = $PSScriptRoot
 if ([string]::IsNullOrEmpty($root)) { $root = Split-Path -Parent $MyInvocation.MyCommand.Path }   # $PSScriptRoot u zadanoj vrijednosti parametra nije pouzdan (Windows PowerShell 5.1)
 
-# Mjesta ubacivanja: funkcija koja ima ručni popis i korijenska naredba koja se u runspaceu poziva (AddCommand).
-$sites = @(
-    @{ Host = 'Get-SystemInfoItemsAsync'; Root = 'Get-SystemInfoItems' },
-    @{ Host = 'Get-InventoryDataAsync';   Root = 'Get-InventoryData' }
-)
+# Mjesta ubacivanja se otkrivaju iz AST-a: svaki poziv Invoke-BackgroundRunspace (-Functions @('a','b'), -Command 'x') u funkciji koja ga zove.
 
 if ([string]::IsNullOrEmpty($Path)) { $Path = Join-Path $root '..\dist\Auxilium-Dijagnostika-Ljuska.ps1' }
 if (-not (Test-Path -LiteralPath $Path)) { throw ('Nema datoteke: {0} (prvo pokrenite build.ps1).' -f $Path) }
@@ -61,20 +57,34 @@ function Get-Closure {
     return $seen
 }
 
-foreach ($site in $sites) {
-    Write-Host ('{0} -> {1}' -f $site.Host, $site.Root)
-    if (-not $defined.ContainsKey($site.Host)) { $failures.Add(('funkcija {0} ne postoji' -f $site.Host)); Write-Host '  NEUSPJEH: nema funkcije' -ForegroundColor Red; continue }
-    if (-not $defined.ContainsKey($site.Root)) { $failures.Add(('korijen {0} ne postoji' -f $site.Root)); Write-Host '  NEUSPJEH: nema korijena' -ForegroundColor Red; continue }
-
-    # ručni popis: sve konstantne riječi u polju (@(...)) unutar funkcije koje su imena definiranih funkcija
-    $listed = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
-    $arrays = $defined[$site.Host].Body.FindAll({ param($n) $n -is [System.Management.Automation.Language.ArrayExpressionAst] }, $true)
-    foreach ($arr in $arrays) {
-        foreach ($s in $arr.FindAll({ param($n) $n -is [System.Management.Automation.Language.StringConstantExpressionAst] }, $true)) {
-            if ($defined.ContainsKey($s.Value)) { [void]$listed.Add($s.Value) }
+$sites = New-Object System.Collections.Generic.List[object]
+foreach ($call in $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.CommandAst] -and $n.GetCommandName() -eq 'Invoke-BackgroundRunspace' }, $true)) {
+    $hostFn = $call.Parent
+    while ($null -ne $hostFn -and $hostFn -isnot [System.Management.Automation.Language.FunctionDefinitionAst]) { $hostFn = $hostFn.Parent }
+    if ($null -eq $hostFn -or $hostFn.Name -eq 'Invoke-BackgroundRunspace') { continue }   # sama definicija nije mjesto poziva
+    $els = @($call.CommandElements)
+    $rootName = $null
+    $funcNames = New-Object System.Collections.Generic.List[string]
+    for ($i = 0; $i -lt $els.Count - 1; $i++) {
+        if ($els[$i] -isnot [System.Management.Automation.Language.CommandParameterAst]) { continue }
+        $pname = $els[$i].ParameterName
+        if ($pname -eq 'Command' -and $els[$i + 1] -is [System.Management.Automation.Language.StringConstantExpressionAst]) { $rootName = $els[$i + 1].Value }
+        if ($pname -eq 'Functions') {
+            foreach ($s in $els[$i + 1].FindAll({ param($n) $n -is [System.Management.Automation.Language.StringConstantExpressionAst] }, $true)) { $funcNames.Add($s.Value) }
         }
     }
-    if ($listed.Count -eq 0) { $failures.Add(('{0}: ručni popis nije pronađen' -f $site.Host)); Write-Host '  NEUSPJEH: ručni popis nije pronađen' -ForegroundColor Red; continue }
+    $sites.Add(@{ Host = $hostFn.Name; Root = $rootName; Listed = $funcNames.ToArray() })
+}
+if ($sites.Count -eq 0) { Write-Host 'NEUSPJEH: nijedan poziv Invoke-BackgroundRunspace nije pronađen.' -ForegroundColor Red; exit 1 }
+
+foreach ($site in $sites) {
+    Write-Host ('{0} -> {1}' -f $site.Host, $site.Root)
+    if ([string]::IsNullOrEmpty($site.Root)) { $failures.Add(('{0}: -Command nije konstanta' -f $site.Host)); Write-Host '  NEUSPJEH: -Command mora biti konstantan niz' -ForegroundColor Red; continue }
+    if (-not $defined.ContainsKey($site.Root)) { $failures.Add(('korijen {0} ne postoji' -f $site.Root)); Write-Host '  NEUSPJEH: nema korijena' -ForegroundColor Red; continue }
+    $listed = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($n in $site.Listed) { [void]$listed.Add($n) }
+    foreach ($n in $listed) { if (-not $defined.ContainsKey($n)) { $failures.Add(('{0}: -Functions navodi nepostojeću funkciju {1}' -f $site.Host, $n)); Write-Host ('  NEUSPJEH: nepostojeća funkcija na popisu: {0}' -f $n) -ForegroundColor Red } }
+    if ($listed.Count -eq 0) { $failures.Add(('{0}: popis -Functions nije pronađen' -f $site.Host)); Write-Host '  NEUSPJEH: popis -Functions nije pronađen' -ForegroundColor Red; continue }
 
     $closure = Get-Closure $site.Root
     $missing = @($closure | Where-Object { -not $listed.Contains($_) })
