@@ -40,3 +40,15 @@ Ovdje se bilježi neobjavljeni rad prema izdanju v5 (Faza 0 „Temelji“ iz izv
 - `test\Start-Sandbox.ps1` iz predloška `test\Auxilium.wsb` izrađuje `Auxilium.generated.wsb` s punom putanjom `dist\` (nije u gitu) i pokreće Sandbox; `test\README.md` ima kontrolnu listu (UAC, EN jezik, bez Officea, PDF, prekid, izlaz).
 - `build.ps1` sada u `dist\` kopira i pokretač `Pokreni-Auxilium-Ljuska.cmd` (bajt-kopija iz `src\launcher\`) i upisuje ga u `MANIFEST.txt`.
 - Ručni pregled u Sandboxu **nije izvršen** (nema Windowsa); kriterij „alat se podigne na admina i napravi PDF“ ostaje za provjeru na Windowsu.
+
+## Faza 1 – Stabilizacija (prva izmjena koda nakon v4)
+
+Od ove točke `src\` se razlikuje od v4. `tests\Test-SrcSplit.ps1` (bajt-identičnost s v4) je ukinut kao dovršen; bajt-identičnost je dokazana u T0.1/T0.2 (commitovi `3d01514`, `2a2f869`). Zamjenjuju ga `build.ps1`, Pester testovi i PSSA baseline. Sve ispod provjereno je statički i Pester testovima na PowerShellu 7 (Linux); **ponašanje u pravom prozoru na Windowsu nije isprobano**.
+
+- **T1.1** `Update-SystemStatus`: uz svako `$rtb.Clear()` resetira se `$script:LiveRows` (živi CPU/RAM bar više ne piše na stare pomake dok je panel u stanju „Učitavanje…“).
+- **T1.2** Redoslijed oslobađanja: `Remove-AppResources` sada prvo zaustavlja skeniranje i timere, oslobađa formu, pa tek onda fontove (`Remove-AppFonts`) i `FontCollection`. `Initialize-Resources` na početku oslobađa fontove prethodnog poziva (drugi poziv više ne curi 16 fontova).
+- **T1.3** `Get-SystemInfoItemsAsync`: sink je `BlockingCollection[object]` umjesto `List[object]` (`.Add` i `.ToArray()` su thread-safe; `ToArray()` postoji na `BlockingCollection`, što je provjereno i testom s istodobnim pisanjem iz runspacea, 50 ponavljanja).
+- **T1.4** `Invoke-CleanupTask`: prije koraka 2 (zaustavljanje `wuauserv`) čeka završetak pozadinskog skeniranja (do 30 s); ako skeniranje nije završilo uspješno, nakon čišćenja se ponavlja (`Update-SystemStatus` bez `-SkipDeep`). N2 je bila PRETPOSTAVKA (nije reproducirano): ovo je zaštita, ne dokazan popravak.
+- **T1.7** Svih 8 preostalih `Get-CimInstance` poziva dobilo je `-OperationTimeoutSec 10` (7 u `Get-SystemInfoItems`, 1 u ELEVATION); Pester test provjerava da nijedan poziv ne ostane bez roka.
+- **T1.10** `Invoke-LiveProcess`: nakon `Kill` čekanje do 2 s ide u petlji `WaitForExit(100)` + `Update-Ui` (bez zamrzavanja).
+- PSSA baseline spušten (nalazi manje za 2 prazna `catch`). Novi Pester testovi: `tests\Unit\Regression.Tests.ps1`.

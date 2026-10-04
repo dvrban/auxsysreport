@@ -19,7 +19,7 @@ if (-not $script:IsAdmin -or -not $script:IsSta) {
         try {
             $driveRoot = [System.IO.Path]::GetPathRoot($scriptPath)
             if ($driveRoot -match '^[A-Za-z]:\\$') {
-                $logical = Get-CimInstance -ClassName Win32_LogicalDisk -Filter ("DeviceID='{0}'" -f $driveRoot.Substring(0, 2)) -ErrorAction Stop
+                $logical = Get-CimInstance -OperationTimeoutSec 10 -ClassName Win32_LogicalDisk -Filter ("DeviceID='{0}'" -f $driveRoot.Substring(0, 2)) -ErrorAction Stop
                 if ($logical.DriveType -eq 4 -and $logical.ProviderName) {
                     $scriptPath = $logical.ProviderName.TrimEnd('\') + '\' + $scriptPath.Substring($driveRoot.Length)
                 }

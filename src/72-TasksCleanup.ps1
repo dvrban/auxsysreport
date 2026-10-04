@@ -282,6 +282,7 @@ function Invoke-CleanupTask {
     $freeBefore = [double]$driveInfo.AvailableFreeSpace
     $totalFreed = [double]0
     $touched    = $false
+    $rescan     = $false
 
     try {
         Write-Terminal '1/4  Brisanje privremenih datoteka (korisnički i sistemski TEMP)...' 'Info'
@@ -289,6 +290,14 @@ function Invoke-CleanupTask {
         $totalFreed += [double](Clear-TempFolders)
         if (Test-StopRequested) { return }
 
+        # Korak 2 zaustavlja wuauserv, a pozadinsko skeniranje u isto vrijeme traži ažuriranja preko Windows Update API-ja: sačekati ga (najviše 30 s).
+        if ($script:Deep.State -eq 'Running') {
+            Write-Terminal '  Čekam završetak pozadinskog skeniranja prije zaustavljanja Windows Update servisa...' 'Info'
+            [void](Wait-DeepScan 30)
+            if (Test-StopRequested) { return }
+        }
+        # Skeniranje koje nije završilo uspješno (greška, istek bez podataka) ponavlja se nakon čišćenja da odjeljak Ažuriranja ne ostane prazan.
+        $rescan = ($script:Deep.State -ne 'Done')
         Write-Terminal '2/4  Windows Update predmemorija (wuauserv + SoftwareDistribution\Download)...' 'Info'
         $totalFreed += [double](Clear-UpdateCache)
         if (Test-StopRequested) { return }
@@ -303,7 +312,7 @@ function Invoke-CleanupTask {
     } finally {
         # Status se osvježava i nakon prekida/greške jer su datoteke možda već obrisane.
         if ($touched -and -not $script:Closing) {
-            try { Update-SystemStatus -IgnoreCancel -SkipDeep } catch { Write-Terminal ('Osvježavanje statusa nije uspjelo: {0}' -f $_.Exception.Message) 'Warn' }
+            try { Update-SystemStatus -IgnoreCancel -SkipDeep:(-not $rescan) } catch { Write-Terminal ('Osvježavanje statusa nije uspjelo: {0}' -f $_.Exception.Message) 'Warn' }
         }
     }
 }

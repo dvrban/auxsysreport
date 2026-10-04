@@ -204,7 +204,13 @@ function Invoke-LiveProcess {
         }
 
         while (-not $proc.WaitForExit(100)) {
-            if (Test-StopRequested) { try { $proc.Kill() } catch { }; [void]$proc.WaitForExit(2000); break }
+            if (Test-StopRequested) {
+                try { $proc.Kill() } catch { }
+                # do 2 s čekanja na kraj procesa, ali uz pumpanje poruka (sučelje se ne smije zamrznuti)
+                $killWait = [System.Diagnostics.Stopwatch]::StartNew()
+                while (-not $proc.WaitForExit(100) -and $killWait.ElapsedMilliseconds -lt 2000) { Update-Ui }
+                break
+            }
             Update-Ui
         }
         if ($proc.HasExited) { $exitCode = $proc.ExitCode }

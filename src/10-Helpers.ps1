@@ -64,7 +64,19 @@ function Import-BrandFonts {
     return $result
 }
 
+# Oslobađa fontove i njihovu kolekciju (poziva se pri izlasku i na početku Initialize-Resources).
+function Remove-AppFonts {
+    foreach ($font in @($script:Fonts.Values)) {
+        try { $font.Dispose() } catch { Write-Verbose ('Font: ' + $_.Exception.Message) }
+    }
+    $script:Fonts = @{}
+    try {
+        if ($script:FontCollection) { $script:FontCollection.Dispose(); $script:FontCollection = $null }
+    } catch { Write-Verbose ('FontCollection: ' + $_.Exception.Message) }
+}
+
 function Initialize-Resources {
+    Remove-AppFonts   # ponovni poziv (npr. testni harness) ne smije iscuriti fontove iz prethodnog poziva
     # Paleta prati stil Auxilium web aplikacije (Nalozi / IT Inventar): tamne plošne površine, obrub od 1 px, jantarni i tirkizni naglasci.
     $script:Colors = @{
         # površine
@@ -139,16 +151,14 @@ function Initialize-Resources {
 }
 
 function Remove-AppResources {
-    foreach ($key in @($script:Fonts.Keys)) {
-        try { $script:Fonts[$key].Dispose() } catch { }
-    }
-    try { if ($script:FontCollection) { $script:FontCollection.Dispose(); $script:FontCollection = $null } } catch { }
+    # Redoslijed: prvo zaustaviti rad i osloboditi formu (kontrole drže reference na fontove), tek onda fontove i njihovu kolekciju.
     try { if ($script:UI.ProgressResetTimer) { $script:UI.ProgressResetTimer.Stop(); $script:UI.ProgressResetTimer.Dispose() } } catch { }
     try { Stop-DeepScan } catch { }
     try { if ($script:UI.DeepTimer) { $script:UI.DeepTimer.Stop(); $script:UI.DeepTimer.Dispose() } } catch { }
     try { if ($script:UI.LiveTimer) { $script:UI.LiveTimer.Stop(); $script:UI.LiveTimer.Dispose() } } catch { }
     try { if ($script:UI.ProgressTimer) { $script:UI.ProgressTimer.Stop(); $script:UI.ProgressTimer.Dispose() } } catch { }
     try { if ($script:UI.Form) { $script:UI.Form.Dispose() } } catch { }
+    Remove-AppFonts
 }
 
 function Format-Bytes {

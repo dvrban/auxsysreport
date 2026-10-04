@@ -61,7 +61,7 @@ function Get-SystemInfoItems {
     # --- Operacijski sustav ---
     $items.Add((New-InfoItem 'Section' '' 'OPERACIJSKI SUSTAV'))
     try {
-        $os = Get-CimInstance -ClassName Win32_OperatingSystem -ErrorAction Stop
+        $os = Get-CimInstance -OperationTimeoutSec 10 -ClassName Win32_OperatingSystem -ErrorAction Stop
         $items.Add((New-InfoItem 'KV' 'Naziv' ([string]$os.Caption).Trim()))
 
         $display = ''
@@ -90,19 +90,19 @@ function Get-SystemInfoItems {
     # --- Hardver ---
     $items.Add((New-InfoItem 'Section' '' 'PROCESSOR, MBO & RAM'))
     try {
-        $cs = Get-CimInstance -ClassName Win32_ComputerSystem -ErrorAction Stop
+        $cs = Get-CimInstance -OperationTimeoutSec 10 -ClassName Win32_ComputerSystem -ErrorAction Stop
         $model = ('{0} {1}' -f $cs.Manufacturer, $cs.Model).Trim()
         $items.Add((New-InfoItem 'KV' 'Model' $model))
     } catch { }
     try {
-        $board = Get-CimInstance -ClassName Win32_BaseBoard -ErrorAction Stop | Select-Object -First 1
+        $board = Get-CimInstance -OperationTimeoutSec 10 -ClassName Win32_BaseBoard -ErrorAction Stop | Select-Object -First 1
         $boardText = ('{0} {1}' -f $board.Manufacturer, $board.Product).Trim()
         $items.Add((New-InfoItem 'KV' 'Matična ploča' $boardText))
     } catch {
         $items.Add((New-InfoItem 'KV' 'Matična ploča' 'nije dostupno' 'Warn'))
     }
     try {
-        $cpus = @(Get-CimInstance -ClassName Win32_Processor -ErrorAction Stop)
+        $cpus = @(Get-CimInstance -OperationTimeoutSec 10 -ClassName Win32_Processor -ErrorAction Stop)
         foreach ($cpu in $cpus) {
             $cpuName = ([string]$cpu.Name -replace '\s+', ' ').Trim()
             $items.Add((New-InfoItem 'KV' 'Procesor' $cpuName))
@@ -142,7 +142,7 @@ function Get-SystemInfoItems {
     # --- Grafička kartica (GPU) ---
     $items.Add((New-InfoItem 'Section' '' 'GRAFIČKA KARTICA (GPU)'))
     try {
-        $gpus = @(Get-CimInstance -ClassName Win32_VideoController -ErrorAction Stop)
+        $gpus = @(Get-CimInstance -OperationTimeoutSec 10 -ClassName Win32_VideoController -ErrorAction Stop)
         if ($gpus.Count -eq 0) {
             $items.Add((New-InfoItem 'Text' '' 'Nije pronađena nijedna grafička kartica.' 'Warn'))
         }
@@ -196,7 +196,7 @@ function Get-SystemInfoItems {
     # --- Logički diskovi ---
     $items.Add((New-InfoItem 'Section' '' 'DISKOVI (LOGIČKI)'))
     try {
-        $volumes = @(Get-CimInstance -ClassName Win32_LogicalDisk -Filter 'DriveType = 3' -ErrorAction Stop)
+        $volumes = @(Get-CimInstance -OperationTimeoutSec 10 -ClassName Win32_LogicalDisk -Filter 'DriveType = 3' -ErrorAction Stop)
         if ($volumes.Count -eq 0) {
             $items.Add((New-InfoItem 'Text' '' 'Nema lokalnih diskova.' 'Warn'))
         }
@@ -274,7 +274,7 @@ function Get-SystemInfoItems {
         if (-not [string]::IsNullOrWhiteSpace($ConsoleUser) -and $ConsoleUser -ne $runAsUser) {
             $items.Add((New-InfoItem 'Text' '' ('Printeri su očitani za račun {0}; osobni (mrežni) printeri i zadani printer korisnika {1} mogu nedostajati ili se razlikovati.' -f $runAsUser, $ConsoleUser) 'Warn'))
         }
-        $printers = @(Get-CimInstance -ClassName Win32_Printer -ErrorAction Stop | Sort-Object -Property @{ Expression = { if ($_.Default) { 0 } else { 1 } } }, Name)
+        $printers = @(Get-CimInstance -OperationTimeoutSec 10 -ClassName Win32_Printer -ErrorAction Stop | Sort-Object -Property @{ Expression = { if ($_.Default) { 0 } else { 1 } } }, Name)
         if ($printers.Count -eq 0) {
             $items.Add((New-InfoItem 'Text' '' 'Nema instaliranih printera.'))
         }
@@ -431,7 +431,8 @@ function Get-SystemInfoItemsAsync {
         $ps.Runspace = $rs
         # Popis (List, ne ArrayList: njegov Add vraća indeks i zagadio bi izlaz) u koji funkcija odmah upisuje stavke: ako upit zapne,
         # sve što je do tada prikupljeno ostaje dostupno. Prijavljeni korisnik prosljeđuje se kao parametar (runspace nema vlastitu predmemoriju).
-        $sink = New-Object System.Collections.Generic.List[object]
+        # BlockingCollection: Add i ToArray su sigurni među nitima (obični List bi pri isteku vremena, dok runspace još piše, mogao baciti iznimku u ToArray).
+        $sink = New-Object 'System.Collections.Concurrent.BlockingCollection[object]'
         [void]$ps.AddCommand('Get-SystemInfoItems').AddParameter('Sink', $sink).AddParameter('ConsoleUser', [string](Get-ConsoleUser))
         $async = $ps.BeginInvoke()
 
@@ -472,6 +473,7 @@ function Update-SystemStatus {
     $rtb = $script:UI.Status
     if ($null -ne $rtb) {
         $rtb.Clear()
+        $script:LiveRows = @{}   # panel je prazan: stari pomaci u retku više ne vrijede (LiveTimer bi pisao na pogrešno mjesto)
         Add-RichText $rtb 'Učitavanje podataka o sustavu...' $script:Colors.Muted -Indent 6
     }
     Write-Terminal 'Prikupljanje informacija o sustavu...' 'Info'
@@ -491,6 +493,7 @@ function Update-SystemStatus {
                 Show-SystemInfo @(Get-CombinedInfoItems)
             } else {
                 $rtb.Clear()
+                $script:LiveRows = @{}
                 Add-RichText $rtb 'Podaci o sustavu nisu učitani. Pritisnite "Osvježi".' $script:Colors.Muted -Indent 6
             }
         }

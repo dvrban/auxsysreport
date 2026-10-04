@@ -65,7 +65,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\Test-SrcSplit.ps
 
 Provjerava BOM i CRLF svake datoteke, SHA-256 sastavljene datoteke prema izdanju, isti popis od 122 funkcije najviše razine (AST)
 i da se svaki dio parsira bez grešaka.
-Vrijedi samo dok `src\` odgovara izdanju v0.04; poslije prve izmjene koda zamjenjuju je `build.ps1` i Pester testovi (T0.2, T0.5).
+
 
 ## Za sljedeće tikete
 
