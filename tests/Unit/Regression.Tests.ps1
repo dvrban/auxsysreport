@@ -209,3 +209,29 @@ Describe 'Trijaža praznih catch blokova (T1.5)' {
         }
     }
 }
+
+Describe 'T1.6 strogi način je zadan (isključuje se datotekom .off)' {
+    It 'GLOBAL STATE uključuje Set-StrictMode -Version 2 osim uz datoteku Auxilium-StrictMode.off, u opsegu skripte' {
+        $gs = [System.IO.File]::ReadAllText((Join-Path $script:AuxSrcRoot '06-GlobalState.ps1'))
+        $gs | Should -Match 'File\]::Exists\(\[System\.IO\.Path\]::Combine\(\$PSScriptRoot, ''Auxilium-StrictMode\.off''\)\)'
+        $gs | Should -Match 'if \(-not \$strictOff\) \{\s*Set-StrictMode -Version 2'
+        $tokens = $null; $errors = $null
+        $ast = [System.Management.Automation.Language.Parser]::ParseInput($gs, [ref]$tokens, [ref]$errors)
+        @($ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true)).Count | Should -Be 0
+    }
+}
+
+Describe 'Strogi način: ključevi registra $script:UI su unaprijed postavljeni' {
+    It 'svaki ključ $script:UI.<Naziv> koji se koristi u izvoru postoji u početnoj hashtablici (GLOBAL STATE)' {
+        $gs = [System.IO.File]::ReadAllText((Join-Path $script:AuxSrcRoot '06-GlobalState.ps1'))
+        $m = [regex]::Match($gs, '(?s)\$script:UI\s*=\s*@\{(.*?)\r?\n\}')
+        $m.Success | Should -BeTrue
+        $defined = @([regex]::Matches($m.Groups[1].Value, '(\w+)\s*=') | ForEach-Object { $_.Groups[1].Value })
+        $used = New-Object 'System.Collections.Generic.HashSet[string]'
+        foreach ($file in [System.IO.Directory]::GetFiles($script:AuxSrcRoot, '*.ps1', [System.IO.SearchOption]::TopDirectoryOnly)) {
+            foreach ($mm in [regex]::Matches([System.IO.File]::ReadAllText($file), '\$script:UI\.([A-Za-z]\w*)(?!\w*\()')) { [void]$used.Add($mm.Groups[1].Value) }
+        }
+        $missing = @($used | Where-Object { $defined -notcontains $_ -and $_ -notin 'Keys', 'Values', 'Count' })
+        $missing | Should -BeNullOrEmpty
+    }
+}

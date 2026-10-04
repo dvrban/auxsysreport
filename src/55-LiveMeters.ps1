@@ -12,7 +12,7 @@ function Set-LiveRow {
     if ($bar.Length -ne $row.Length) { return }
     # Prepisivanje retka uzrokuje treptanje panela: radi se samo kad se prikaz stvarno promijenio (postotak ili boja), a ne pri svakom otkucaju tajmera.
     $signature = $bar + '|' + $Status
-    if ($row.Signature -ceq $signature) {
+    if ($row.ContainsKey('Signature') -and $row.Signature -ceq $signature) {
         $row.Item.Percent = $pct
         $row.Item.Value   = $Text
         $row.Item.Status  = $Status

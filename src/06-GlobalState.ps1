@@ -6,7 +6,14 @@ $script:AppTitle   = 'Auxilium Informatika - Dijagnostika i čišćenje sustava'
 $script:BuildNumber = 4
 if ($script:BuildNumber % 100 -eq 0) { $script:AppVersion = '{0}.0' -f [int]($script:BuildNumber / 100) } else { $script:AppVersion = '{0}.{1}' -f [int][Math]::Floor($script:BuildNumber / 100), ([int]($script:BuildNumber % 100)).ToString('00') }
 
-$script:UI                = @{}
+# Registar kontrola: svi ključevi se unaprijed postavljaju ($null) jer u strogom načinu (Set-StrictMode 2) čitanje nepostojećeg ključa baca iznimku,
+# a funkcije ih čitaju i prije nego što je forma izgrađena (npr. Write-Terminal, Update-ClientBar).
+$script:UI                = @{
+    ActionButtons = @(); ClientControls = @(); ClientUpdating = $false
+    BtnCancel = $null; ComboFrame = $null; ComboOff = $null; CompanyBox = $null; DeepTimer = $null; Form = $null; HealthTile = $null
+    LiveTimer = $null; PathLabel = $null; ProgressFill = $null; ProgressResetTimer = $null; ProgressTimer = $null; ProgressTrack = $null
+    Status = $null; Terminal = $null
+}
 $script:Colors            = @{}
 $script:Fonts             = @{}
 $script:Busy              = $false
@@ -45,5 +52,15 @@ $script:HealthState       = 'Loading'
 $script:LiveRows          = @{}
 $script:CpuPrev           = $null
 $script:LogClearSelection = $null
+# Strogi način (T1.6): alat radi pod Set-StrictMode -Version 2 (nepostavljene varijable, nepostojeća svojstva i sl. bacaju iznimku koju radnja ispiše u
+# terminal i dnevnik). Prošao je ispitivanje na Windowsu (ocjena, PDF, JSON, mreža, čišćenje, izvoz dnevnika). Ako zapne na terenu, isključuje se praznom
+# datotekom Auxilium-StrictMode.off uz skriptu. Set-StrictMode mora biti u opsegu skripte (ne u funkciji).
+$script:StrictMode = $false
+try {
+    $strictOff = (-not [string]::IsNullOrEmpty($PSScriptRoot)) -and [System.IO.File]::Exists([System.IO.Path]::Combine($PSScriptRoot, 'Auxilium-StrictMode.off'))
+    if (-not $strictOff) {
+        Set-StrictMode -Version 2
+        $script:StrictMode = $true
+    }
+} catch { $script:StrictMode = $false }
 #endregion GLOBAL STATE
-

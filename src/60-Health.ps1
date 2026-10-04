@@ -37,6 +37,7 @@ function Get-HealthResult {
         param($Rows)
         $worst = 'Good'
         foreach ($r in @($Rows)) {
+            if ($null -eq $r) { continue }   # @($null) ima jedan element; u strogom načinu $null.Status baca iznimku
             if ($r.Status -eq 'Bad') { return 'Bad' }
             if ($r.Status -eq 'Warn') { $worst = 'Warn' }
         }
@@ -92,6 +93,7 @@ function Get-HealthResult {
     if ($cat.Avail) {
         $diskName = ''
         foreach ($r in @($dh)) {
+            if ($null -eq $r) { continue }   # @($null) ima jedan element; u strogom načinu $null.Status baca iznimku
             if ($r.Kind -ne 'KV') { continue }
             $lab = ([string]$r.Label).Trim()
             if ($lab -like 'Disk *') { $diskName = [string]$r.Value; if ($diskName.Length -gt 40) { $diskName = $diskName.Substring(0, 40) }; continue }
@@ -105,6 +107,7 @@ function Get-HealthResult {
         }
         $sysDrive = [string]$env:SystemDrive
         foreach ($r in @($dl)) {
+            if ($null -eq $r) { continue }   # @($null) ima jedan element; u strogom načinu $null.Status baca iznimku
             if ($r.Kind -ne 'KV' -or ($r.Status -ne 'Bad' -and $r.Status -ne 'Warn')) { continue }
             $isSys = ((-not [string]::IsNullOrEmpty($sysDrive)) -and ([string]$r.Label).StartsWith($sysDrive, [System.StringComparison]::OrdinalIgnoreCase))
             $lab = ([string]$r.Label).Trim()
