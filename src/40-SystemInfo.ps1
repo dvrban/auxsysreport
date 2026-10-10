@@ -352,9 +352,11 @@ function Add-RichText {
     $Rtb.SelectionLength = 0
     $Rtb.SelectionColor  = $Color
     if ($Bold) { $Rtb.SelectionFont = $script:Fonts.MonoBold } else { $Rtb.SelectionFont = $script:Fonts.Mono }
-    $Rtb.SelectionIndent        = $Indent
-    $Rtb.SelectionHangingIndent = $Hanging
-    if ($null -ne $Tabs) { $Rtb.SelectionTabs = $Tabs }
+    # Uvlake i tabulatori RichTextBoxa su u pikselima uređaja: vrijednosti iz koda (96-DPI jedinice) množe se faktorom skaliranja (T3.4).
+    $dpi = [double]$script:DpiScale
+    $Rtb.SelectionIndent        = [int][Math]::Round($Indent * $dpi)
+    $Rtb.SelectionHangingIndent = [int][Math]::Round($Hanging * $dpi)
+    if ($null -ne $Tabs) { $Rtb.SelectionTabs = [int[]]@($Tabs | ForEach-Object { [int][Math]::Round($_ * $dpi) }) }
     if ($NewLine) { $Rtb.AppendText($Text + "`n") } else { $Rtb.AppendText($Text) }
 }
 

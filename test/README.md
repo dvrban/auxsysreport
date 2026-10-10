@@ -21,3 +21,6 @@ Windows Sandbox treba Windows 10/11 Pro, Enterprise ili Education i uključenu z
 - [ ] **Izlaz:** zatvaranje prozora zatvara proces (Task Manager: nema `powershell.exe` koji visi).
 
 Rezultate upišite uz izdanje u `PROMJENE.md`. Ovaj pregled **nije** automatiziran: ne može se izvesti na Linuxu ni u CI-ju.
+
+## DPI (T3.4)
+Na računalu sa skaliranjem 125 % i 150 % (Postavke → Zaslon → Mjerilo) pokrenite alat i provjerite: tekst je oštar (ne zamućen), ništa nije odrezano (zaglavlje, kartice, terminal, kartica Health/Security Score), prozor staje na zaslon i barovi CPU/RAM i uvlake u statusu izgledaju kao pri 100 %. U dnevniku je redak `Zaslon: skaliranje …`. Ako je raspored pokvaren, privremeno stavite praznu datoteku `Auxilium-Dpi.off` uz skriptu. Za usporedbu samo crtanja: `tests\Render-Paint.ps1`.

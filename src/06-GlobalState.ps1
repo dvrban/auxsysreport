@@ -29,6 +29,7 @@ $script:KeepDirs          = $null
 $script:AppRoot           = ''
 $script:LogPath           = ''      # dnevnik na stiku (Write-AppLog); LogFailed = zapis nije moguć, više se ne pokušava
 $script:LogFailed         = $false
+$script:DpiScale         = 1.0     # faktor skaliranja zaslona (1.0 = 100 %); postavlja Enable-DpiAwareness. Raspored se piše u 96-DPI jedinicama.
 $script:CurrentTask       = ''      # naziv zadatka koji je u tijeku (Start-GuiTask): dijagnostika watchdoga
 $script:UiWatch           = New-Object System.Diagnostics.Stopwatch   # watchdog sučelja (Update-UiWatchdog)
 $script:UiWatchEntries    = 0

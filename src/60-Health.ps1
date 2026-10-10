@@ -266,6 +266,7 @@ function Invoke-HealthPaint {
         $g.TextRenderingHint = [System.Drawing.Text.TextRenderingHint]::ClearTypeGridFit
         $w = $Sender.Width
         $h = $Sender.Height
+        $s = [double]$script:DpiScale   # sve koordinate ispod pišemo u 96-DPI jedinicama; pomoćne funkcije ih množe s $s (T3.4)
         $lineColor = $c.Button
         if ($c.ContainsKey('Line')) { $lineColor = $c.Line }
         $pen = New-Object System.Drawing.Pen ($lineColor)
@@ -295,14 +296,14 @@ function Invoke-HealthPaint {
         $drawAt = {
             param([string]$Text, $Font, $Color, [double]$X, [double]$Y, [double]$Width, $Format)
             $brush = New-Object System.Drawing.SolidBrush ($Color)
-            try { $g.DrawString($Text, $Font, $brush, (New-Object System.Drawing.RectangleF([single]$X, [single]$Y, [single][Math]::Max(10, $Width), [single]($Font.Height + 2))), $Format) } finally { $brush.Dispose() }
+            try { $g.DrawString($Text, $Font, $brush, (New-Object System.Drawing.RectangleF([single]($X * $s), [single]($Y * $s), [single][Math]::Max(10, $Width * $s), [single]($Font.Height + 2))), $Format) } finally { $brush.Dispose() }
         }
         $fillRect = {
             param($Color, [double]$X, [double]$Y, [double]$Width, [double]$Height)
             $brush = New-Object System.Drawing.SolidBrush ($Color)
-            try { $g.FillRectangle($brush, [single]$X, [single]$Y, [single]$Width, [single]$Height) } finally { $brush.Dispose() }
+            try { $g.FillRectangle($brush, [single]($X * $s), [single]($Y * $s), [single]($Width * $s), [single]($Height * $s)) } finally { $brush.Dispose() }
         }
-        $inner = [double]($w - 28)
+        $inner = [double]($w / $s - 28)
         & $drawAt 'Health/Security Score' $f.Ui $c.Text 14 8 $inner $sf
         & $drawAt $scoreText $f.HealthNum $numColor 14 24 $inner $sf
 
@@ -371,11 +372,12 @@ function Update-HealthTile {
         try { $script:Health = Get-HealthResult $Items } catch { $script:Health = $null }
         $script:HealthState = 'Ready'
     }
-    $height = 96
+    $height = 96   # u 96-DPI jedinicama; ispod se množi faktorom skaliranja (T3.4)
     if ($script:HealthState -eq 'Ready' -and $null -ne $script:Health) {
         $lines = [Math]::Max(1, [Math]::Min(3, @($script:Health.Deductions).Count))
         $height = 98 + 14 * @($script:Health.Categories).Count + 8 + 15 * $lines + 8
     }
+    $height = [int][Math]::Round($height * [double]$script:DpiScale)
     if ($tile.Height -ne $height) { $tile.Height = $height }
     $tile.Invalidate()
 }

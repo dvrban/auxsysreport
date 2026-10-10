@@ -16,6 +16,7 @@ function Invoke-HeaderPaint {
         $sfRight.FormatFlags = $sfRight.FormatFlags -bor [System.Drawing.StringFormatFlags]::NoWrap
         $sfRight.Alignment = [System.Drawing.StringAlignment]::Far
         $dpi = $g.DpiY
+        $s = [double]$script:DpiScale   # literali ispod su u 96-DPI jedinicama (T3.4)
 
         $draw = {
             param([string]$Text, $Font, $Color, [double]$X, [double]$Y)
@@ -35,7 +36,7 @@ function Invoke-HeaderPaint {
         # Centriranje po visini velikih slova (a ne po okviru retka): Bahnschrift ima velika slova više u retku, pa bi logotip inače bio previsoko.
         $capPx = 0.72 * $big.SizeInPoints * $dpi / 72.0
         $y = [Math]::Round((($Sender.Height - 1) - $capPx) / 2.0 - ($bigAscent - $capPx))
-        $x = 18.0
+        $x = 18.0 * $s
         $parts = @(
             @{ T = 'AU';    C = $c.Text    },
             @{ T = 'X';     C = $c.LogoRed },
@@ -46,21 +47,21 @@ function Invoke-HeaderPaint {
             & $draw $part.T $big $part.C $x $y
             $x += $g.MeasureString($part.T, $big, 2000, $sf).Width
         }
-        $x += 12.0
+        $x += 12.0 * $s
         $ySmall = $y + $bigAscent - (& $ascent $small)
         foreach ($ch in 'INFORMATIKA'.ToCharArray()) {
-            $s = [string]$ch
-            & $draw $s $small $c.Muted $x $ySmall
-            $x += $g.MeasureString($s, $small, 2000, $sf).Width + 3.0
+            $chText = [string]$ch
+            & $draw $chText $small $c.Muted $x $ySmall
+            $x += $g.MeasureString($chText, $small, 2000, $sf).Width + 3.0 * $s
         }
 
         $brush = New-Object System.Drawing.SolidBrush ($c.Muted)
         try {
-            $rect1 = New-Object System.Drawing.RectangleF(($Sender.Width - 420), 20, 402, 22)
+            $rect1 = New-Object System.Drawing.RectangleF(($Sender.Width - 420 * $s), (20 * $s), (402 * $s), (22 * $s))
             $g.DrawString('Dijagnostika i održavanje sustava', $f.HeadSub, $brush, $rect1, $sfRight)
             $adminText = 'standardni korisnik'
             if ($script:IsAdmin) { $adminText = 'administrator' }
-            $rect2 = New-Object System.Drawing.RectangleF(($Sender.Width - 420), 44, 402, 18)
+            $rect2 = New-Object System.Drawing.RectangleF(($Sender.Width - 420 * $s), (44 * $s), (402 * $s), (18 * $s))
             $g.DrawString(('v{0}  |  {1}  |  {2}' -f $script:AppVersion, $env:COMPUTERNAME, $adminText), $f.HeadSmall, $brush, $rect2, $sfRight)
         } finally {
             $brush.Dispose()
@@ -458,10 +459,15 @@ function New-MainForm {
     $form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedSingle
     $form.MaximizeBox     = $false
     $form.StartPosition   = [System.Windows.Forms.FormStartPosition]::CenterScreen
+    # DPI (T3.4): raspored je u 96-DPI jedinicama, a WinForms ga skalira na stvarni DPI (kao kod oblikovatelja obrazaca); pri 100 % je to bez učinka.
+    $form.AutoScaleDimensions = New-Object System.Drawing.SizeF(96, 96)
+    $form.AutoScaleMode       = [System.Windows.Forms.AutoScaleMode]::Dpi
+    $dpiScale = [double]$script:DpiScale
     # Zadana veličina je 1400x760 (1040 za zaglavlje, kartice i terminal + 360 za status sustava s lijeve strane); na zaslonima s manjom radnom površinom
     # (skaliranje 125-150 %) ograničava se na nju.
     $workArea = [System.Windows.Forms.Screen]::FromPoint([System.Windows.Forms.Control]::MousePosition).WorkingArea
-    $form.Size            = New-Object System.Drawing.Size([Math]::Min(1400, $workArea.Width), [Math]::Min(760, $workArea.Height))
+    # Radna površina je u pikselima uređaja, a veličina se zadaje u 96-DPI jedinicama (skalira se nakon toga): zato se dijeli s faktorom skaliranja.
+    $form.Size            = New-Object System.Drawing.Size([Math]::Min(1400, [int][Math]::Floor($workArea.Width / $dpiScale)), [Math]::Min(760, [int][Math]::Floor($workArea.Height / $dpiScale)))
     $form.BackColor       = $c.Form
     $form.ForeColor       = $c.Text
     $form.Font            = $f.Ui
@@ -496,7 +502,7 @@ function New-MainForm {
     $timer.Add_Tick({
         $bar = $script:UI.ProgressFill
         $area = $script:UI.ProgressTrack
-        $bar.Left += 14
+        $bar.Left += [int][Math]::Round(14 * [double]$script:DpiScale)
         if ($bar.Left -gt $area.Width) { $bar.Left = -$bar.Width }
     })
     $script:UI.ProgressTimer = $timer
@@ -727,6 +733,8 @@ function New-MainForm {
         Write-Terminal ('Auxilium Informatika - Dijagnostika i čišćenje sustava v{0}' -f (Get-ToolVersionText)) 'Header'
         Write-Terminal ('Računalo: {0} | Korisnik: {1} | Prava: {2}' -f $env:COMPUTERNAME, [Environment]::UserName, $adminText) 'Info'
         Write-AppLog 'Info' ('Pokrenuto: v{0}, prava: {1}' -f (Get-ToolVersionText), $adminText)
+        $screenForm = $script:UI.Form
+        Write-AppLog 'Info' ('Zaslon: skaliranje {0:N2}, AutoScaleFactor {1:N2}x{2:N2}, prozor {3}x{4}, radna površina {5}x{6}' -f $script:DpiScale, $screenForm.AutoScaleFactor.Width, $screenForm.AutoScaleFactor.Height, $screenForm.Width, $screenForm.Height, [System.Windows.Forms.Screen]::FromControl($screenForm).WorkingArea.Width, [System.Windows.Forms.Screen]::FromControl($screenForm).WorkingArea.Height)
         $compileText = 'tip je već bio učitan'
         if ($script:NativeCompileMs -ge 0) { $compileText = ('prevođenje C#: {0} ms' -f $script:NativeCompileMs) }
         Write-AppLog 'Info' ('Pokretanje do prikaza prozora: {0} ms ({1})' -f $script:StartWatch.ElapsedMilliseconds, $compileText)
