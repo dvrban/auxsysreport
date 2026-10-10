@@ -115,6 +115,7 @@ function Show-LogSelectionDialog {
     try { $deficit = Get-LogDialogDeficit ([System.Windows.Forms.Screen]::FromControl($script:UI.Form).WorkingArea.Height) $script:DpiScale } catch { Write-AppLog 'Debug' 'Dijalog dnevnika: radna površina' $_ }
     $script:LogDlg = @{ Form = $form; Plan = @($Plan); List = $null; Summary = $null; Ok = $null; Busy = $false }
     try {
+        $form.SuspendLayout()   # AutoScaleMode bi inače skalirao još prazan obrazac (vidi New-MainForm); skaliranje se obavlja u PerformLayout nakon zadnjeg Controls.Add
         $form.Text            = 'Odabir dnevnika događaja'
         $form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
         $form.MaximizeBox     = $false
@@ -203,6 +204,8 @@ function Show-LogSelectionDialog {
 
         foreach ($ctl in @($info, $list, $summary, $btnAll, $btnNone, $btnCore, $btnOk, $btnCancel)) { $form.Controls.Add($ctl) }
         Update-LogSelectionSummary
+        $form.ResumeLayout($false)
+        $form.PerformLayout()
 
         $result = $form.ShowDialog($script:UI.Form)
         if ($result -ne [System.Windows.Forms.DialogResult]::OK) { return $null }

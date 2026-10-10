@@ -455,6 +455,9 @@ function New-MainForm {
     })
 
     $form = New-Object System.Windows.Forms.Form
+    # Sve dok se obrazac gradi, raspored je odgođen (kao u kodu oblikovatelja: SuspendLayout ... ResumeLayout). Bez toga bi AutoScaleMode odmah skalirao još PRAZAN
+    # obrazac i kasnije dodane kontrole ostale bi u 96-DPI pikselima (T3.4, nalaz provjere): skaliranje se obavlja tek u PerformLayout nakon zadnjeg Controls.Add.
+    $form.SuspendLayout()
     $form.Text            = $script:AppTitle
     $form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedSingle
     $form.MaximizeBox     = $false
@@ -677,6 +680,9 @@ function New-MainForm {
     $content.TabIndex   = 0
     $leftPane.TabIndex  = 1
 
+    $form.ResumeLayout($false)
+    $form.PerformLayout()   # ovdje WinForms skalira cijelo stablo kontrola (AutoScaleMode = Dpi); ne zvati PerformAutoScale poslije (ComboFrame se mjeri pri HandleCreated)
+    $script:UI.LeftPane      = $leftPane
     $script:UI.Status        = $statusArea.Rtb
     $script:UI.Terminal      = $termArea.Rtb
     $script:UI.BtnCancel     = $btnCancel
@@ -733,8 +739,13 @@ function New-MainForm {
         Write-Terminal ('Auxilium Informatika - Dijagnostika i čišćenje sustava v{0}' -f (Get-ToolVersionText)) 'Header'
         Write-Terminal ('Računalo: {0} | Korisnik: {1} | Prava: {2}' -f $env:COMPUTERNAME, [Environment]::UserName, $adminText) 'Info'
         Write-AppLog 'Info' ('Pokrenuto: v{0}, prava: {1}' -f (Get-ToolVersionText), $adminText)
-        $screenForm = $script:UI.Form
-        Write-AppLog 'Info' ('Zaslon: skaliranje {0:N2}, AutoScaleFactor {1:N2}x{2:N2}, prozor {3}x{4}, radna površina {5}x{6}' -f $script:DpiScale, $screenForm.AutoScaleFactor.Width, $screenForm.AutoScaleFactor.Height, $screenForm.Width, $screenForm.Height, [System.Windows.Forms.Screen]::FromControl($screenForm).WorkingArea.Width, [System.Windows.Forms.Screen]::FromControl($screenForm).WorkingArea.Height)
+        # Dijagnostika skaliranja: samo javna svojstva (ContainerControl.AutoScaleFactor je protected, a u strogom načinu čitanje bacilo bi iznimku i prekinulo pokretanje).
+        # Lijevi stupac mora biti 360 * faktor px; ako nije, WinForms nije skalirao kontrole.
+        try {
+            $screenForm = $script:UI.Form
+            $workNow = [System.Windows.Forms.Screen]::FromControl($screenForm).WorkingArea
+            Write-AppLog 'Info' ('Zaslon: skaliranje {0:N2} (DPI {1}), prozor {2}x{3}, radna površina {4}x{5}, lijevi stupac {6} px (očekivano {7})' -f $script:DpiScale, $screenForm.CurrentAutoScaleDimensions.Width, $screenForm.Width, $screenForm.Height, $workNow.Width, $workNow.Height, $script:UI.LeftPane.Width, [int][Math]::Round(360 * [double]$script:DpiScale))
+        } catch { Write-AppLog 'Debug' 'Zaslon: zapis skaliranja' $_ }
         $compileText = 'tip je već bio učitan'
         if ($script:NativeCompileMs -ge 0) { $compileText = ('prevođenje C#: {0} ms' -f $script:NativeCompileMs) }
         Write-AppLog 'Info' ('Pokretanje do prikaza prozora: {0} ms ({1})' -f $script:StartWatch.ElapsedMilliseconds, $compileText)

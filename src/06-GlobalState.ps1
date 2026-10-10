@@ -12,7 +12,7 @@ $script:UI                = @{
     ActionButtons = @(); ClientControls = @(); ClientUpdating = $false
     BtnCancel = $null; ComboFrame = $null; ComboOff = $null; CompanyBox = $null; DeepTimer = $null; Form = $null; HealthTile = $null
     LiveTimer = $null; PathLabel = $null; WatchTimer = $null; ProgressFill = $null; ProgressResetTimer = $null; ProgressTimer = $null; ProgressTrack = $null
-    Status = $null; Terminal = $null
+    Status = $null; Terminal = $null; LeftPane = $null
 }
 $script:Colors            = @{}
 $script:Fonts             = @{}

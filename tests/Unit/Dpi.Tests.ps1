@@ -86,6 +86,38 @@ Describe 'DPI (T3.4)' {
             $script:ui | Should -Match 'AutoScaleDimensions = New-Object System\.Drawing\.SizeF\(96, 96\)'
             $script:ui | Should -Match 'AutoScaleMode\s+= \[System\.Windows\.Forms\.AutoScaleMode\]::Dpi'
         }
+        It 'obrazac se gradi između SuspendLayout i ResumeLayout/PerformLayout (inače AutoScaleMode skalira prazan obrazac i kontrole ostaju neskalirane)' {
+            foreach ($pair in @(@('New-MainForm', '$form'), @('Show-LogSelectionDialog', '$form'))) {
+                $fn = Get-AuxFunctionText $pair[0]
+                $suspend = $fn.IndexOf('$form.SuspendLayout()')
+                $mode = $fn.IndexOf('$form.AutoScaleMode')
+                $lastAdd = $fn.LastIndexOf('$form.Controls.Add(')
+                if ($pair[0] -eq 'Show-LogSelectionDialog') { $lastAdd = $fn.IndexOf('$form.Controls.Add($ctl)') }
+                $resume = $fn.IndexOf('$form.ResumeLayout($false)')
+                $perform = $fn.IndexOf('$form.PerformLayout()')
+                $suspend | Should -BeGreaterThan -1 -Because $pair[0]
+                $suspend | Should -BeLessThan $mode -Because $pair[0]
+                $lastAdd | Should -BeGreaterThan $mode -Because $pair[0]
+                $resume | Should -BeGreaterThan $lastAdd -Because $pair[0]
+                $perform | Should -BeGreaterThan $resume -Because $pair[0]
+            }
+        }
+        It 'nijedan dio ne čita ContainerControl.AutoScaleFactor (protected: u strogom načinu baca iznimku i prekida Shown)' {
+            foreach ($file in [System.IO.Directory]::GetFiles($script:AuxSrcRoot, '*.ps1')) {
+                $ast = [System.Management.Automation.Language.Parser]::ParseFile($file, [ref]$null, [ref]$null)
+                $hits = @($ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.MemberExpressionAst] -and $n.Member.Extent.Text -eq 'AutoScaleFactor' }, $true))
+                $hits.Count | Should -Be 0 -Because $file
+            }
+        }
+        It 'zapis skaliranja u Shown rukovatelju ne smije prekinuti pokretanje: unutar je try' {
+            $ast = [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $script:AuxSrcRoot '85-Ui.ps1'), [ref]$null, [ref]$null)
+            $log = @($ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.CommandAst] -and $n.Extent.Text -like "*Write-AppLog 'Info' ('Zaslon:*" }, $true))
+            $log.Count | Should -Be 1
+            $p = $log[0].Parent
+            $inTry = $false
+            while ($null -ne $p) { if ($p -is [System.Management.Automation.Language.TryStatementAst]) { $inTry = $true; break }; $p = $p.Parent }
+            $inTry | Should -BeTrue
+        }
         It 'početna veličina prozora dijeli radnu površinu s faktorom (prozor se ne smije skalirati preko ekrana)' {
             $script:ui | Should -Match 'Floor\(\$workArea\.Width / \$dpiScale\)'
             $script:ui | Should -Match 'Floor\(\$workArea\.Height / \$dpiScale\)'
