@@ -525,6 +525,12 @@ function New-MainForm {
     $script:UI.LiveTimer = $liveTimer
     $liveTimer.Start()
 
+    # Watchdog sučelja (T3.7): pokreće se kad se prozor prikaže (Add_Shown).
+    $watchTimer = New-Object System.Windows.Forms.Timer
+    $watchTimer.Interval = 100
+    $watchTimer.Add_Tick({ try { Update-UiWatchdog } catch { Write-AppLog 'Debug' 'Tajmer: Update-UiWatchdog' $_ } })
+    $script:UI.WatchTimer = $watchTimer
+
     # --- Tijelo ---
     $body = New-Object System.Windows.Forms.Panel
     $body.Dock      = 'Fill'
@@ -721,6 +727,11 @@ function New-MainForm {
         Write-Terminal ('Auxilium Informatika - Dijagnostika i čišćenje sustava v{0}' -f (Get-ToolVersionText)) 'Header'
         Write-Terminal ('Računalo: {0} | Korisnik: {1} | Prava: {2}' -f $env:COMPUTERNAME, [Environment]::UserName, $adminText) 'Info'
         Write-AppLog 'Info' ('Pokrenuto: v{0}, prava: {1}' -f (Get-ToolVersionText), $adminText)
+        $compileText = 'tip je već bio učitan'
+        if ($script:NativeCompileMs -ge 0) { $compileText = ('prevođenje C#: {0} ms' -f $script:NativeCompileMs) }
+        Write-AppLog 'Info' ('Pokretanje do prikaza prozora: {0} ms ({1})' -f $script:StartWatch.ElapsedMilliseconds, $compileText)
+        $script:UiWatch.Restart()
+        $script:UI.WatchTimer.Start()
         if ($script:StrictMode) {
             Write-AppLog 'Info' 'Strogi način: Set-StrictMode -Version 2 (isključuje se datotekom Auxilium-StrictMode.off).'
         } else {

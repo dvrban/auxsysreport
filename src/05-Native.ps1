@@ -1,4 +1,5 @@
 ﻿#region NATIVE
+$script:NativeCompileMs = -1   # trajanje prevođenja C# u ms (-1 = tip je već bio učitan)
 if (-not ('Auxilium.NativeMethods' -as [type])) {
     # Prevođenje C# (csc.exe) u Windows PowerShellu 5.1 ne podnosi TEMP putanju sa znakovima izvan ANSI stranice sustava (npr. profil "Đuro"
     # na sustavu s kodnom stranicom 1252): tada se TEMP/TMP samo za ovaj proces privremeno usmjeravaju na ASCII mapu (vraćaju se nakon prevođenja).
@@ -26,10 +27,12 @@ if (-not ('Auxilium.NativeMethods' -as [type])) {
             }
         }
     } catch { <# namjerno: probni odabir mape za prevođenje C#: slijedi sljedeći kandidat #> }
+    $compileWatch = [System.Diagnostics.Stopwatch]::StartNew()
     try {
     Add-Type -ErrorAction Stop -ReferencedAssemblies 'System.Windows.Forms', 'System.Drawing' -TypeDefinition @'
 #<<NATIVE_CS>>#
 '@
+    $script:NativeCompileMs = [int]$compileWatch.ElapsedMilliseconds
     } catch {
         # Povišeni proces radi sakriven: bez ove poruke bi neuspjeh prevođenja (npr. antivirus blokira csc.exe) prošao nezamijećeno.
         try {

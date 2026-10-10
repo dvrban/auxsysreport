@@ -11,7 +11,7 @@ if ($script:BuildNumber % 100 -eq 0) { $script:AppVersion = '{0}.0' -f [int]($sc
 $script:UI                = @{
     ActionButtons = @(); ClientControls = @(); ClientUpdating = $false
     BtnCancel = $null; ComboFrame = $null; ComboOff = $null; CompanyBox = $null; DeepTimer = $null; Form = $null; HealthTile = $null
-    LiveTimer = $null; PathLabel = $null; ProgressFill = $null; ProgressResetTimer = $null; ProgressTimer = $null; ProgressTrack = $null
+    LiveTimer = $null; PathLabel = $null; WatchTimer = $null; ProgressFill = $null; ProgressResetTimer = $null; ProgressTimer = $null; ProgressTrack = $null
     Status = $null; Terminal = $null
 }
 $script:Colors            = @{}
@@ -29,6 +29,9 @@ $script:KeepDirs          = $null
 $script:AppRoot           = ''
 $script:LogPath           = ''      # dnevnik na stiku (Write-AppLog); LogFailed = zapis nije moguć, više se ne pokušava
 $script:LogFailed         = $false
+$script:CurrentTask       = ''      # naziv zadatka koji je u tijeku (Start-GuiTask): dijagnostika watchdoga
+$script:UiWatch           = New-Object System.Diagnostics.Stopwatch   # watchdog sučelja (Update-UiWatchdog)
+$script:UiWatchEntries    = 0
 $script:LogLastSignature   = ''      # zadnji zapis bez vremena (spajanje ponavljanja u dnevniku)
 $script:LogRepeats        = 0
 $script:ToolHash          = ''      # prvih 8 znakova SHA-256 ove skripte (Get-ToolFingerprint): dokaz koje je izdanje napravilo izvještaj

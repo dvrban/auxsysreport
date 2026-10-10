@@ -156,6 +156,7 @@ function Remove-AppResources {
     try { Stop-DeepScan } catch { <# namjerno: izlaz iz alata: greška pri zaustavljanju skeniranja nije bitna #> }
     try { if ($script:UI.DeepTimer) { $script:UI.DeepTimer.Stop(); $script:UI.DeepTimer.Dispose() } } catch { <# namjerno: oslobađanje resursa: greška pri zatvaranju nije bitna #> }
     try { if ($script:UI.LiveTimer) { $script:UI.LiveTimer.Stop(); $script:UI.LiveTimer.Dispose() } } catch { <# namjerno: oslobađanje resursa: greška pri zatvaranju nije bitna #> }
+    try { if ($script:UI.WatchTimer) { $script:UI.WatchTimer.Stop(); $script:UI.WatchTimer.Dispose() } } catch { Write-AppLog 'Debug' 'Oslobađanje: WatchTimer' $_ }
     try { if ($script:UI.ProgressTimer) { $script:UI.ProgressTimer.Stop(); $script:UI.ProgressTimer.Dispose() } } catch { <# namjerno: oslobađanje resursa: greška pri zatvaranju nije bitna #> }
     try { if ($script:UI.Form) { $script:UI.Form.Dispose() } } catch { <# namjerno: oslobađanje resursa: greška pri zatvaranju nije bitna #> }
     Remove-AppFonts

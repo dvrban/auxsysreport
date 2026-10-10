@@ -1,4 +1,5 @@
-﻿Add-Type -AssemblyName System.Windows.Forms
+﻿$script:StartWatch = [System.Diagnostics.Stopwatch]::StartNew()   # mjerenje pokretanja (T3.5/T3.7): do prikaza prozora, zapis u dnevnik
+Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
 try { [System.Windows.Forms.Application]::SetUnhandledExceptionMode([System.Windows.Forms.UnhandledExceptionMode]::CatchException) } catch { <# namjerno: postavka sučelja nije kritična; izvodi se prije definicije Write-AppLog #> }
