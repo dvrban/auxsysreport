@@ -156,6 +156,7 @@ function Remove-AppResources {
     try { Stop-DeepScan } catch { <# namjerno: izlaz iz alata: greška pri zaustavljanju skeniranja nije bitna #> }
     try { if ($script:UI.DeepTimer) { $script:UI.DeepTimer.Stop(); $script:UI.DeepTimer.Dispose() } } catch { <# namjerno: oslobađanje resursa: greška pri zatvaranju nije bitna #> }
     try { if ($script:UI.LiveTimer) { $script:UI.LiveTimer.Stop(); $script:UI.LiveTimer.Dispose() } } catch { <# namjerno: oslobađanje resursa: greška pri zatvaranju nije bitna #> }
+    try { if ($script:UI.WatchTimer) { $script:UI.WatchTimer.Stop(); $script:UI.WatchTimer.Dispose() } } catch { Write-AppLog 'Debug' 'Oslobađanje: WatchTimer' $_ }
     try { if ($script:UI.ProgressTimer) { $script:UI.ProgressTimer.Stop(); $script:UI.ProgressTimer.Dispose() } } catch { <# namjerno: oslobađanje resursa: greška pri zatvaranju nije bitna #> }
     try { if ($script:UI.Form) { $script:UI.Form.Dispose() } } catch { <# namjerno: oslobađanje resursa: greška pri zatvaranju nije bitna #> }
     Remove-AppFonts
@@ -207,6 +208,28 @@ function Resolve-SystemTool {
     }
     return (Join-Path $dir $Name)
 }
+# DPI (T3.4): alat je sustavno svjestan DPI-ja pa su tekst i crteži oštri na zaslonima s 125-175 % skaliranja (inače ih Windows rasteže kao sliku).
+# Raspored je napisan u 96-DPI jedinicama: kontrole skalira WinForms (AutoScaleMode = Dpi), a ručno crtani dijelovi i pikselne vrijednosti množe se s $script:DpiScale.
+# Isključuje se praznom datotekom Auxilium-Dpi.off uz skriptu (tada se vraća staro ponašanje: Windows rasteže cijeli prozor).
+function Get-DpiScaleFromDpi {
+    param([double]$Dpi)
+    if ($Dpi -le 96) { return 1.0 }
+    return [Math]::Round($Dpi / 96.0, 2)
+}
+
+function Enable-DpiAwareness {
+    $script:DpiScale = 1.0
+    try {
+        if (-not [string]::IsNullOrEmpty($PSScriptRoot) -and [System.IO.File]::Exists([System.IO.Path]::Combine($PSScriptRoot, 'Auxilium-Dpi.off'))) { return }
+        if (-not [Auxilium.NativeMethods]::EnableDpiAwareness()) { return }
+        $g = [System.Drawing.Graphics]::FromHwnd([IntPtr]::Zero)
+        try { $script:DpiScale = Get-DpiScaleFromDpi $g.DpiX } finally { $g.Dispose() }
+    } catch {
+        $script:DpiScale = 1.0
+        Write-AppLog 'Debug' 'Enable-DpiAwareness' $_
+    }
+}
+
 # Otisak ove skripte: prvih 8 heksadecimalnih znakova SHA-256 njezine datoteke (prazan niz ako se ne može izračunati, npr. nema datoteke).
 function Get-ToolFingerprint {
     param([string]$Path = $PSCommandPath)

@@ -421,6 +421,15 @@ namespace Auxilium
             catch { return null; }
         }
 
+        // DPI (T3.4): sustavno svjestan proces (Windows Vista+). Mora se pozvati prije nego što se u procesu stvori ijedan prozor.
+        [DllImport("user32.dll")]
+        private static extern bool SetProcessDPIAware();
+
+        public static bool EnableDpiAwareness()
+        {
+            try { return SetProcessDPIAware(); } catch { return false; }
+        }
+
         // Privremeno isključuje/uključuje iscrtavanje kontrole (WM_SETREDRAW): gradnja panela statusa ne treperi.
         public static void SetRedraw(IntPtr handle, bool enable)
         {

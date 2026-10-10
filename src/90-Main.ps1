@@ -1,5 +1,6 @@
 ﻿#region MAIN
 try {
+    Enable-DpiAwareness   # prije prvog prozora (T3.4)
     Initialize-Resources
     New-MainForm
     [void]$script:UI.Form.ShowDialog()

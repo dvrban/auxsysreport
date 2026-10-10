@@ -1,7 +1,6 @@
 ﻿#region LOGS
 # Izvoz svih Windows dnevnika događaja u TXT (uz izvještaj), pa brisanje svakog dnevnika TEK NAKON što je njegov izvoz uspješno zapisan i provjeren.
-# $script:LogClearSelection: $null = svi dnevnici koji imaju zapise. Izbornik za odabir dnevnika dodaje se kasnije: dovoljno je postaviti popis
-# naziva dnevnika (npr. @('System', 'Application')), a ostatak zadatka (izvoz, provjera, brisanje, popis) se ne mijenja.
+# $script:LogClearSelection: $null = svi dnevnici koji imaju zapise; inače popis naziva iz prethodnog odabira u ovoj sesiji (dijalog Show-LogSelectionDialog, T3.6).
 # Popis svih Windows dnevnika događaja (Get-WinEvent -ListLog * traje 0,6-0,7 s, a na sporom disku i duže). Izvodi se u pozadinskom runspaceu (T2.3), pa ne smije
 # koristiti $script: ni kontrole; vraća samo osnovne podatke (naziv, broj zapisa, veličina).
 function Get-LogChannelInfo {
@@ -196,13 +195,23 @@ function Invoke-EventLogClearTask {
     }
 
     Write-Terminal '  Popis dnevnika događaja koji imaju zapise...' 'Info'
-    $plan = @(Get-LogChannelPlan -Selection $script:LogClearSelection | Where-Object { $_.Selected })
+    $plan = @(Get-LogChannelPlan)
     if (Test-StopRequested) { return }
     if ($plan.Count -eq 0) {
-        Write-Terminal 'Nema dnevnika događaja sa zapisima (ili nijedan nije odabran).' 'Warn'
+        Write-Terminal 'Nema dnevnika događaja sa zapisima.' 'Warn'
         $script:TaskNoResult = $true
         return
     }
+    # T3.6: korisnik bira koji se dnevnici izvoze i brišu (zadano svi, odnosno raniji odabir u ovoj sesiji). Završna potvrda ispod ostaje.
+    $allNames = @($plan | ForEach-Object { [string]$_.Name })
+    $plan = Get-ChosenLogPlan $plan
+    if ($null -eq $plan) {
+        Write-Terminal 'Izvoz i brisanje dnevnika je otkazano pri odabiru dnevnika (ništa nije izvezeno ni obrisano).' 'Warn'
+        $script:TaskNoResult = $true
+        return
+    }
+    $plan = @($plan)
+    Write-Terminal ('  Odabrano dnevnika za izvoz i brisanje: {0}' -f $plan.Count) 'Info'
     $totalRecords = [int64](($plan | Measure-Object -Property Records -Sum).Sum)
     $totalBytes   = [int64](($plan | Measure-Object -Property SizeBytes -Sum).Sum)
 
@@ -234,12 +243,7 @@ function Invoke-EventLogClearTask {
     }
 
     $estMinutes = [Math]::Max(1, [int][Math]::Ceiling($totalRecords / 1500.0 / 60.0))
-    $question = ('Alat će:' + [Environment]::NewLine +
-        ('1) izvesti u TXT sve Windows dnevnike događaja koji imaju zapise ({0} dnevnika, ukupno {1} zapisa) u mapu:' -f $plan.Count, $totalRecords) + [Environment]::NewLine +
-        $dir + [Environment]::NewLine + [Environment]::NewLine +
-        '2) tek nakon uspješno zapisanog i provjerenog izvoza svakog dnevnika taj dnevnik OBRISATI.' + [Environment]::NewLine + [Environment]::NewLine +
-        'Brisanje je NEPOVRATNO (uključujući dnevnik Security) i uklanja tragove o događajima u sustavu; ostaju samo TXT datoteke. ' +
-        ('Izvoz traje oko {0} min.' -f $estMinutes) + [Environment]::NewLine + [Environment]::NewLine + 'Želite li nastaviti?')
+    $question = Get-LogClearQuestion -Plan $plan -AllNames $allNames -Dir $dir -TotalRecords $totalRecords -EstMinutes $estMinutes
     $answer = [System.Windows.Forms.MessageBox]::Show($script:UI.Form, $question, $script:AppName,
         [System.Windows.Forms.MessageBoxButtons]::YesNo, [System.Windows.Forms.MessageBoxIcon]::Warning, [System.Windows.Forms.MessageBoxDefaultButton]::Button2)
     if ($answer -ne [System.Windows.Forms.DialogResult]::Yes) {

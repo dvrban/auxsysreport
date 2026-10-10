@@ -23,6 +23,8 @@ Gradi se s `build.ps1` u korijenu repozitorija (T0.2): `powershell.exe -NoProfil
 | `45-DeepScan.ps1` | DEEP SCAN; dijete-skripta je u `deep\DeepScan.ps1` | 1696–2605 |
 | `50-Logs.ps1` | LOGS | 2606–2924 |
 | `55-LiveMeters.ps1` | LIVE METERS | 2925–2983 |
+| `56-Watchdog.ps1` | WATCHDOG (T3.7: bilježenje trenutaka kad sučelje ne reagira); nije dio izvornih 6606 redaka v0.04 | – |
+| `52-LogSelection.ps1` | LOG SELECTION (T3.6: dijalog za odabir dnevnika događaja); nije dio izvornih 6606 redaka v0.04 | – |
 | `60-Health.ps1` | HEALTH (Health/Security Score) | 2984–3364 |
 | `65-LiveProcess.ps1` | LIVE PROCESS | 3365–3584 |
 | `70-TasksSystem.ps1` | TASKS - SISTEM | 3585–3644 |

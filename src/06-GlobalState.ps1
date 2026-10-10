@@ -11,8 +11,8 @@ if ($script:BuildNumber % 100 -eq 0) { $script:AppVersion = '{0}.0' -f [int]($sc
 $script:UI                = @{
     ActionButtons = @(); ClientControls = @(); ClientUpdating = $false
     BtnCancel = $null; ComboFrame = $null; ComboOff = $null; CompanyBox = $null; DeepTimer = $null; Form = $null; HealthTile = $null
-    LiveTimer = $null; PathLabel = $null; ProgressFill = $null; ProgressResetTimer = $null; ProgressTimer = $null; ProgressTrack = $null
-    Status = $null; Terminal = $null
+    LiveTimer = $null; PathLabel = $null; WatchTimer = $null; ProgressFill = $null; ProgressResetTimer = $null; ProgressTimer = $null; ProgressTrack = $null
+    Status = $null; Terminal = $null; LeftPane = $null
 }
 $script:Colors            = @{}
 $script:Fonts             = @{}
@@ -29,6 +29,10 @@ $script:KeepDirs          = $null
 $script:AppRoot           = ''
 $script:LogPath           = ''      # dnevnik na stiku (Write-AppLog); LogFailed = zapis nije moguć, više se ne pokušava
 $script:LogFailed         = $false
+$script:DpiScale         = 1.0     # faktor skaliranja zaslona (1.0 = 100 %); postavlja Enable-DpiAwareness. Raspored se piše u 96-DPI jedinicama.
+$script:CurrentTask       = ''      # naziv zadatka koji je u tijeku (Start-GuiTask): dijagnostika watchdoga
+$script:UiWatch           = New-Object System.Diagnostics.Stopwatch   # watchdog sučelja (Update-UiWatchdog)
+$script:UiWatchEntries    = 0
 $script:LogLastSignature   = ''      # zadnji zapis bez vremena (spajanje ponavljanja u dnevniku)
 $script:LogRepeats        = 0
 $script:ToolHash          = ''      # prvih 8 znakova SHA-256 ove skripte (Get-ToolFingerprint): dokaz koje je izdanje napravilo izvještaj
@@ -52,6 +56,7 @@ $script:HealthState       = 'Loading'
 $script:LiveRows          = @{}
 $script:CpuPrev           = $null
 $script:LogClearSelection = $null
+$script:LogDlg            = $null   # stanje dijaloga za odabir dnevnika (samo dok je otvoren)
 # Strogi način (T1.6): alat radi pod Set-StrictMode -Version 2 (nepostavljene varijable, nepostojeća svojstva i sl. bacaju iznimku koju radnja ispiše u
 # terminal i dnevnik). Prošao je ispitivanje na Windowsu (ocjena, PDF, JSON, mreža, čišćenje, izvoz dnevnika). Ako zapne na terenu, isključuje se praznom
 # datotekom Auxilium-StrictMode.off uz skriptu. Set-StrictMode mora biti u opsegu skripte (ne u funkciji).

@@ -154,6 +154,7 @@ function Start-GuiTask {
         $script:TaskNoResult    = $false
         Set-BusyState $true
         $started = $true
+        $script:CurrentTask = $Title
         Write-Banner $Title
         & $Command
         if ($script:CancelRequested) { Write-Terminal 'Zadatak je prekinut.' 'Warn' }
@@ -164,6 +165,7 @@ function Start-GuiTask {
         if ($started) {
             $stopwatch.Stop()
             Write-Terminal ('Gotovo. Trajanje: {0}' -f (Format-Duration $stopwatch.Elapsed)) 'Info'
+            $script:CurrentTask = ''
             Set-BusyState $false
         }
     }
