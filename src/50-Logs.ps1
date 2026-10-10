@@ -203,14 +203,14 @@ function Invoke-EventLogClearTask {
         return
     }
     # T3.6: korisnik bira koji se dnevnici izvoze i brišu (zadano svi, odnosno raniji odabir u ovoj sesiji). Završna potvrda ispod ostaje.
-    $chosen = Show-LogSelectionDialog $plan (Get-DefaultLogSelection $plan $script:LogClearSelection)
-    if ($null -eq $chosen) {
+    $allNames = @($plan | ForEach-Object { [string]$_.Name })
+    $plan = Get-ChosenLogPlan $plan
+    if ($null -eq $plan) {
         Write-Terminal 'Izvoz i brisanje dnevnika je otkazano pri odabiru dnevnika (ništa nije izvezeno ni obrisano).' 'Warn'
         $script:TaskNoResult = $true
         return
     }
-    $script:LogClearSelection = @($chosen)
-    $plan = @(Select-LogPlanByName $plan $chosen)
+    $plan = @($plan)
     Write-Terminal ('  Odabrano dnevnika za izvoz i brisanje: {0}' -f $plan.Count) 'Info'
     $totalRecords = [int64](($plan | Measure-Object -Property Records -Sum).Sum)
     $totalBytes   = [int64](($plan | Measure-Object -Property SizeBytes -Sum).Sum)
@@ -243,12 +243,7 @@ function Invoke-EventLogClearTask {
     }
 
     $estMinutes = [Math]::Max(1, [int][Math]::Ceiling($totalRecords / 1500.0 / 60.0))
-    $question = ('Alat će:' + [Environment]::NewLine +
-        ('1) izvesti u TXT sve Windows dnevnike događaja koji imaju zapise ({0} dnevnika, ukupno {1} zapisa) u mapu:' -f $plan.Count, $totalRecords) + [Environment]::NewLine +
-        $dir + [Environment]::NewLine + [Environment]::NewLine +
-        '2) tek nakon uspješno zapisanog i provjerenog izvoza svakog dnevnika taj dnevnik OBRISATI.' + [Environment]::NewLine + [Environment]::NewLine +
-        'Brisanje je NEPOVRATNO (uključujući dnevnik Security) i uklanja tragove o događajima u sustavu; ostaju samo TXT datoteke. ' +
-        ('Izvoz traje oko {0} min.' -f $estMinutes) + [Environment]::NewLine + [Environment]::NewLine + 'Želite li nastaviti?')
+    $question = Get-LogClearQuestion -Plan $plan -AllNames $allNames -Dir $dir -TotalRecords $totalRecords -EstMinutes $estMinutes
     $answer = [System.Windows.Forms.MessageBox]::Show($script:UI.Form, $question, $script:AppName,
         [System.Windows.Forms.MessageBoxButtons]::YesNo, [System.Windows.Forms.MessageBoxIcon]::Warning, [System.Windows.Forms.MessageBoxDefaultButton]::Button2)
     if ($answer -ne [System.Windows.Forms.DialogResult]::Yes) {

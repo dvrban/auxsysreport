@@ -15,7 +15,45 @@ function Get-DefaultLogSelection {
 # Dio plana koji odgovara odabranim nazivima.
 function Select-LogPlanByName {
     param($Plan, [string[]]$Names)
-    return @($Plan | Where-Object { @($Names) -contains [string]$_.Name })
+    # HashSet (bez razlike veličine slova, kao -contains): popis ima i stotinjak dnevnika, a funkcija se zove pri svakoj promjeni kvačice.
+    $set = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($n in @($Names)) { if ($null -ne $n) { [void]$set.Add([string]$n) } }
+    return @($Plan | Where-Object { $set.Contains([string]$_.Name) })
+}
+
+# Odabir iz dijaloga primijenjen na plan: vraća samo odabrane dnevnike ili $null ako je korisnik odustao (ili odabrani nazivi ne odgovaraju nijednom dnevniku).
+# Samo ovaj dio odlučuje što će biti izvezeno i obrisano, zato je zasebna funkcija s testovima.
+function Get-ChosenLogPlan {
+    param($Plan)
+    $chosen = Show-LogSelectionDialog $Plan (Get-DefaultLogSelection $Plan $script:LogClearSelection)
+    if ($null -eq $chosen) { return $null }
+    $script:LogClearSelection = @($chosen)
+    $picked = @(Select-LogPlanByName $Plan $chosen)
+    if ($picked.Count -eq 0) { return $null }
+    return ,$picked
+}
+
+# Tekst završne potvrde: opisuje TOČNO ono što će se dogoditi (odabrani dnevnici, jesu li Security i drugi dnevnici zahvaćeni), a ne "sve dnevnike".
+function Get-LogClearQuestion {
+    param($Plan, [string[]]$AllNames, [string]$Dir, [int64]$TotalRecords, [int]$EstMinutes)
+    $nl = [Environment]::NewLine
+    $chosenNames = @($Plan | ForEach-Object { [string]$_.Name } | Sort-Object)
+    $isAll = ($chosenNames.Count -ge @($AllNames).Count)
+    $hasSecurity = ($chosenNames -contains 'Security')
+    if ($isAll) {
+        $what = ('1) izvesti u TXT sve Windows dnevnike događaja koji imaju zapise ({0} dnevnika, ukupno {1} zapisa) u mapu:' -f $chosenNames.Count, $TotalRecords)
+    } else {
+        $shown = @($chosenNames | Select-Object -First 12)
+        $list = ($shown -join ', ')
+        if ($chosenNames.Count -gt $shown.Count) { $list += (' ... i još {0}' -f ($chosenNames.Count - $shown.Count)) }
+        $what = ('1) izvesti u TXT SAMO odabrane dnevnike događaja ({0} od {1}, ukupno {2} zapisa): {3}' -f $chosenNames.Count, @($AllNames).Count, $TotalRecords, $list) + $nl + 'u mapu:'
+    }
+    if ($hasSecurity) { $irreversible = 'Brisanje je NEPOVRATNO (uključujući dnevnik Security) i uklanja tragove o događajima u sustavu; ostaju samo TXT datoteke. ' }
+    elseif ($isAll) { $irreversible = 'Brisanje je NEPOVRATNO i uklanja tragove o događajima u sustavu; ostaju samo TXT datoteke. ' }
+    else { $irreversible = 'Brisanje je NEPOVRATNO i uklanja tragove o događajima u odabranim dnevnicima; ostaju samo TXT datoteke. Neodabrani dnevnici (dnevnik Security nije odabran) ostaju netaknuti. ' }
+    return ('Alat će:' + $nl + $what + $nl + $Dir + $nl + $nl +
+        '2) tek nakon uspješno zapisanog i provjerenog izvoza svakog dnevnika taj dnevnik OBRISATI.' + $nl + $nl +
+        $irreversible + ('Izvoz traje oko {0} min.' -f $EstMinutes) + $nl + $nl + 'Želite li nastaviti?')
 }
 
 function Get-LogSelectionSummary {
@@ -48,9 +86,22 @@ function Update-LogSelectionSummary {
 function Set-LogChecks {
     param([string[]]$Names)
     $list = $script:LogDlg.List
+    $set = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($n in @($Names)) { if ($null -ne $n) { [void]$set.Add([string]$n) } }
+    # Busy: svaka promjena kvačice diže ItemChecked; sažetak se računa jednom na kraju (inače je skupno označavanje kvadratno sporo).
+    $script:LogDlg.Busy = $true
     $list.BeginUpdate()
-    try { foreach ($item in $list.Items) { $item.Checked = (@($Names) -contains [string]$item.Text) } } finally { $list.EndUpdate() }
+    try { foreach ($item in $list.Items) { $item.Checked = $set.Contains([string]$item.Text) } } finally { $list.EndUpdate(); $script:LogDlg.Busy = $false }
     Update-LogSelectionSummary
+}
+
+# Koliko se (u 96-DPI jedinicama) dijalog mora skratiti da stane u radnu površinu: oblikovana visina je 530, a popis se ne smanjuje ispod 120.
+# Npr. radna površina 1366x768 pri 150 % ima ~ 485 jedinica visine pa bi gumbi na dnu dijaloga ispali izvan zaslona; pri 125 % dijalog stane.
+function Get-LogDialogDeficit {
+    param([double]$WorkAreaHeight, [double]$DpiScale)
+    if ($DpiScale -le 0) { return 0 }
+    $avail = [int][Math]::Floor($WorkAreaHeight / $DpiScale) - 50   # 50 = naslovna traka i okvir prozora (u 96-DPI jedinicama)
+    return [int][Math]::Max(0, [Math]::Min(530 - $avail, 330 - 120))
 }
 
 # Modalni dijalog s popisom dnevnika (kvačice). Vraća polje odabranih naziva ili $null ako je korisnik odustao. Iznimka se NE guta: radnja je razorna pa se pri
@@ -60,7 +111,9 @@ function Show-LogSelectionDialog {
     $c = $script:Colors
     $f = $script:Fonts
     $form = New-Object System.Windows.Forms.Form
-    $script:LogDlg = @{ Form = $form; Plan = @($Plan); List = $null; Summary = $null; Ok = $null }
+    $deficit = 0
+    try { $deficit = Get-LogDialogDeficit ([System.Windows.Forms.Screen]::FromControl($script:UI.Form).WorkingArea.Height) $script:DpiScale } catch { Write-AppLog 'Debug' 'Dijalog dnevnika: radna površina' $_ }
+    $script:LogDlg = @{ Form = $form; Plan = @($Plan); List = $null; Summary = $null; Ok = $null; Busy = $false }
     try {
         $form.Text            = 'Odabir dnevnika događaja'
         $form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
@@ -70,7 +123,7 @@ function Show-LogSelectionDialog {
         $form.StartPosition   = [System.Windows.Forms.FormStartPosition]::CenterParent
         $form.AutoScaleDimensions = New-Object System.Drawing.SizeF(96, 96)   # isto kao glavni prozor (T3.4)
         $form.AutoScaleMode       = [System.Windows.Forms.AutoScaleMode]::Dpi
-        $form.ClientSize      = New-Object System.Drawing.Size(640, 530)
+        $form.ClientSize      = New-Object System.Drawing.Size(640, (530 - $deficit))
         $form.BackColor       = $c.Form
         $form.ForeColor       = $c.Text
         $form.Font            = $f.Ui
@@ -84,7 +137,7 @@ function Show-LogSelectionDialog {
 
         $list = New-Object System.Windows.Forms.ListView
         $list.Location      = New-Object System.Drawing.Point(16, 66)
-        $list.Size          = New-Object System.Drawing.Size(608, 330)
+        $list.Size          = New-Object System.Drawing.Size(608, (330 - $deficit))
         $list.View          = [System.Windows.Forms.View]::Details
         $list.CheckBoxes    = $true
         $list.FullRowSelect = $true
@@ -92,6 +145,7 @@ function Show-LogSelectionDialog {
         $list.BorderStyle   = [System.Windows.Forms.BorderStyle]::FixedSingle
         $list.BackColor     = $c.Data
         $list.ForeColor     = $c.Text
+        $list.ShowItemToolTips = $true   # dugi nazivi (Microsoft-Windows-.../Operational) mogu biti skraćeni
         [void]$list.Columns.Add('Dnevnik', 100)
         $colRecords = $list.Columns.Add('Zapisa', 60)
         $colRecords.TextAlign = [System.Windows.Forms.HorizontalAlignment]::Right
@@ -106,7 +160,7 @@ function Show-LogSelectionDialog {
         }
 
         $summary = New-Object System.Windows.Forms.Label
-        $summary.Location  = New-Object System.Drawing.Point(16, 404)
+        $summary.Location  = New-Object System.Drawing.Point(16, (404 - $deficit))
         $summary.Size      = New-Object System.Drawing.Size(608, 22)
         $summary.ForeColor = $c.Yellow
 
@@ -116,17 +170,17 @@ function Show-LogSelectionDialog {
         $btnOk     = New-FlatButton 'Izvezi i obriši odabrano' 'Danger'
         $btnCancel = New-FlatButton 'Odustani'
         $place = { param($Button, [int]$X, [int]$Y, [int]$W, [int]$H) $Button.Dock = 'None'; $Button.Location = New-Object System.Drawing.Point($X, $Y); $Button.Size = New-Object System.Drawing.Size($W, $H) }
-        & $place $btnAll  16 436 120 34
-        & $place $btnNone 142 436 120 34
-        & $place $btnCore 268 436 200 34
-        & $place $btnOk     324 482 190 36
-        & $place $btnCancel 524 482 100 36
+        & $place $btnAll  16 (436 - $deficit) 120 34
+        & $place $btnNone 142 (436 - $deficit) 120 34
+        & $place $btnCore 268 (436 - $deficit) 200 34
+        & $place $btnOk     324 (482 - $deficit) 190 36
+        & $place $btnCancel 524 (482 - $deficit) 100 36
 
         $script:LogDlg.List = $list
         $script:LogDlg.Summary = $summary
         $script:LogDlg.Ok = $btnOk
 
-        $list.Add_ItemChecked({ try { Update-LogSelectionSummary } catch { Write-AppLog 'Debug' 'Dijalog dnevnika: sažetak' $_ } })
+        $list.Add_ItemChecked({ if ($script:LogDlg.Busy) { return }; try { Update-LogSelectionSummary } catch { Write-AppLog 'Debug' 'Dijalog dnevnika: sažetak' $_ } })
         $btnAll.Add_Click({ Set-LogChecks @($script:LogDlg.Plan | ForEach-Object { [string]$_.Name }) })
         $btnNone.Add_Click({ Set-LogChecks @() })
         $btnCore.Add_Click({ Set-LogChecks (Get-CoreLogNames $script:LogDlg.Plan) })
@@ -137,11 +191,13 @@ function Show-LogSelectionDialog {
             # Širine stupaca iz stvarne širine popisa (u pikselima uređaja): ne ovisi o skaliranju zaslona.
             try {
                 $l = $script:LogDlg.List
-                $w = $l.ClientSize.Width - [System.Windows.Forms.SystemInformation]::VerticalScrollBarWidth
-                $l.Columns[0].Width = [int]($w * 0.58)
-                $l.Columns[1].Width = [int]($w * 0.20)
-                $l.Columns[2].Width = [int]($w * 0.22)
+                # ClientSize već isključuje okomitu traku pomaka; mali odbitak sprječava vodoravnu traku.
+                $w = $l.ClientSize.Width - 4
+                $l.Columns[1].Width = [int]($w * 0.14)
+                $l.Columns[2].Width = [int]($w * 0.18)
+                $l.Columns[0].Width = $w - $l.Columns[1].Width - $l.Columns[2].Width
             } catch { Write-AppLog 'Debug' 'Dijalog dnevnika: širine stupaca' $_ }
+            try { [Auxilium.NativeMethods]::TrySetDarkScrollbars($script:LogDlg.List.Handle) } catch { Write-AppLog 'Debug' 'Dijalog dnevnika: tamna traka pomaka' $_ }
             try { [Auxilium.NativeMethods]::TryEnableDarkTitleBar($script:LogDlg.Form.Handle) } catch { Write-AppLog 'Debug' 'Dijalog dnevnika: tamna naslovna traka' $_ }
         })
 
