@@ -56,6 +56,7 @@ $script:HealthState       = 'Loading'
 $script:LiveRows          = @{}
 $script:CpuPrev           = $null
 $script:LogClearSelection = $null
+$script:LogDlg            = $null   # stanje dijaloga za odabir dnevnika (samo dok je otvoren)
 # Strogi način (T1.6): alat radi pod Set-StrictMode -Version 2 (nepostavljene varijable, nepostojeća svojstva i sl. bacaju iznimku koju radnja ispiše u
 # terminal i dnevnik). Prošao je ispitivanje na Windowsu (ocjena, PDF, JSON, mreža, čišćenje, izvoz dnevnika). Ako zapne na terenu, isključuje se praznom
 # datotekom Auxilium-StrictMode.off uz skriptu. Set-StrictMode mora biti u opsegu skripte (ne u funkciji).
